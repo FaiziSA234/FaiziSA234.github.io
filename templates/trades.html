@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Trades – {{ league.name }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;"><a href="/league/{{ league.id }}" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← {{ league.name }}</a></div>
+<div class="page-header">
+    <div><div class="page-title">↔ <span>TRADES</span></div><div class="page-subtitle">{{ league.name }}</div></div>
+</div>
+
+<div class="grid-2">
+    <!-- Propose trade -->
+    <div class="card">
+        <div class="card-title">Propose New Trade</div>
+        {% if admin %}
+<form method="POST" action="/league/{{ league.id }}/trades/propose" id="trade-form">
+            <div class="form-group">
+                <label>From Team (offering)</label>
+                <select name="from_team_id" id="from-team" onchange="updatePlayers('from')">
+                    <option value="">Select team…</option>
+                    {% for t in teams %}<option value="{{ t.id }}">{{ t.team_name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Player to Give Up</label>
+                <select name="from_player_id" id="from-player"><option value="">Select team first…</option></select>
+            </div>
+            <div class="form-group">
+                <label>To Team (receiving)</label>
+                <select name="to_team_id" id="to-team" onchange="updatePlayers('to')">
+                    <option value="">Select team…</option>
+                    {% for t in teams %}<option value="{{ t.id }}">{{ t.team_name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Player to Receive</label>
+                <select name="to_player_id" id="to-player"><option value="">Select team first…</option></select>
+            </div>
+            <button type="submit" class="btn btn-primary">Propose Trade</button>
+        </form>
+{% endif %}
+    </div>
+
+    <!-- Trade history -->
+    <div class="card">
+        <div class="card-title">Trade History</div>
+        {% if trades %}
+        <div style="max-height:500px;overflow-y:auto;">
+        {% for trade in trades %}
+        <div style="padding:.6rem 0;border-bottom:1px solid var(--border);font-size:.85rem;">
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.3rem;">
+                <span class="badge badge-{{ 'swiss' if trade.status == 'pending' else 'playoffs' if trade.status == 'accepted' else 'team' }}">{{ trade.status }}</span>
+                <span><strong>{{ trade.from_team_name }}</strong> offers <strong style="color:var(--red);">{{ trade.from_player_ign }}</strong></span>
+                <span style="color:var(--muted);">↔</span>
+                <span><strong>{{ trade.to_team_name }}</strong>'s <strong style="color:var(--green);">{{ trade.to_player_ign }}</strong></span>
+            </div>
+            <div style="color:var(--muted);font-size:.75rem;margin-bottom:.3rem;">Proposed: {{ trade.proposed_at[:16] }}{% if trade.resolved_at %} · Resolved: {{ trade.resolved_at[:16] }}{% endif %}</div>
+            {% if trade.status == 'pending' %}
+            <div style="display:flex;gap:.4rem;">
+                {% if admin %}
+<form method="POST" action="/trade/{{ trade.id }}/accept"><button type="submit" class="btn btn-success btn-xs">✓ Accept</button></form>
+{% endif %}
+                {% if admin %}
+<form method="POST" action="/trade/{{ trade.id }}/reject"><button type="submit" class="btn btn-danger btn-xs">✕ Reject</button></form>
+{% endif %}
+                {% if admin %}
+<form method="POST" action="/trade/{{ trade.id }}/cancel"><button type="submit" class="btn btn-secondary btn-xs">Cancel</button></form>
+{% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty" style="padding:1.5rem 0;"><span class="big" style="font-size:2rem;">NONE</span>No trades yet.</div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+const rosters = {{ team_rosters_json | safe }};
+function updatePlayers(side) {
+    const teamSel = document.getElementById(side + '-team');
+    const playerSel = document.getElementById(side + '-player');
+    const teamId = teamSel.value;
+    playerSel.innerHTML = '<option value="">Select player…</option>';
+    if (teamId && rosters[teamId]) {
+        rosters[teamId].forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.player_id;
+            opt.textContent = p.ign;
+            playerSel.appendChild(opt);
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Edit Ruleset – {{ league.name }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;"><a href="/league/{{ league.id }}" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← {{ league.name }}</a></div>
+<div class="page-header"><div class="page-title">EDIT <span>RULESET</span></div></div>
+
+{% if admin %}
+<form method="POST" action="/league/{{ league.id }}/edit_ruleset" style="max-width:820px;">
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">Roster Size & Draft</div>
+            <div class="form-group"><label>Total Players per Team</label><input type="number" name="total_players" value="{{ ruleset.total_players }}" min="1" max="30"></div>
+            <div class="form-check"><input type="checkbox" name="single_phase" id="single_phase" {% if ruleset.get('single_phase', False) %}checked{% endif %}><label for="single_phase">Single Phase League (no Swiss/Playoffs split)</label></div>
+            <div class="form-check"><input type="checkbox" name="snake_draft" id="snake_draft" {% if ruleset.snake_draft %}checked{% endif %}><label for="snake_draft">Snake Draft Format</label></div>
+            <div class="form-check"><input type="checkbox" name="individual_locked" id="indiv_locked" {% if ruleset.individual_locked %}checked{% endif %}><label for="indiv_locked">Individual Locked</label></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Role Requirements</div>
+            {% for role in ['duelist','initiator','controller','sentinel','flex'] %}
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;">
+                <span class="badge badge-role badge-{{ role }}" style="width:80px;text-align:center;">{{ role }}</span>
+                <input type="number" name="role_{{ role }}" value="{{ ruleset.role_requirements.get(role, 0) }}" min="0" max="10" style="width:70px;">
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="grid-2" style="margin-top:1rem;">
+        <div class="card">
+            <div class="card-title">Region Requirements</div>
+            {% for reg in ['EMEA','AMER','APAC','CN'] %}
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;">
+                <span class="badge badge-region" style="width:55px;text-align:center;">{{ reg }}</span>
+                <input type="number" name="reg_{{ reg }}" value="{{ ruleset.region_requirements.get(reg, 0) }}" min="0" max="10" style="width:70px;">
+            </div>
+            {% endfor %}
+            <div class="form-group" style="margin-top:.75rem;max-width:200px;"><label>Max from Same Team</label><input type="number" name="max_per_team" value="{{ ruleset.max_per_team }}" min="1" max="5"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Swiss / Features</div>
+            <div class="form-check"><input type="checkbox" name="swiss_duplicate_allowed" {% if ruleset.swiss_duplicate_allowed %}checked{% endif %}><label>Allow Swiss Duplicate Pick</label></div>
+            <div class="form-group" style="margin-top:.75rem;max-width:200px;"><label>Required Unique (Swiss)</label><input type="number" name="swiss_unique_required" value="{{ ruleset.swiss_unique_required }}" min="1" max="20"></div>
+            <div class="form-check"><input type="checkbox" name="star_player_enabled" {% if ruleset.star_player_enabled %}checked{% endif %}><label>Star Player Enabled</label></div>
+            <div class="form-check"><input type="checkbox" name="team_following_enabled" {% if ruleset.team_following_enabled %}checked{% endif %}><label>Team Following Enabled</label></div>
+        </div>
+    </div>
+    <div style="margin-top:1.25rem;display:flex;gap:.75rem;">
+        <button type="submit" class="btn btn-primary">Save Ruleset</button>
+        <a href="/league/{{ league.id }}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endif %}
+{% endblock %}

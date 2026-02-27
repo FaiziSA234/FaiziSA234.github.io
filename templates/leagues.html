@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Leagues – VCT Fantasy{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><div class="page-title">ALL <span>LEAGUES</span></div></div>
+</div>
+{% if leagues %}
+<div class="table-wrap"><table>
+    <thead><tr><th>League</th><th>Tournament</th><th>Phase</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for lg in leagues %}
+    <tr>
+        <td><a class="player-link" href="/league/{{ lg.id }}">{{ lg.name }}</a></td>
+        <td style="color:var(--muted);">{{ lg.tournament_name }}</td>
+        <td><span class="badge badge-{{ lg.phase }}">{{ lg.phase }}</span></td>
+        <td><a href="/league/{{ lg.id }}" class="btn btn-secondary btn-xs">Open</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+{% else %}
+<div class="empty"><span class="big">NO LEAGUES</span>Create a tournament first, then add a league to it.</div>
+{% endif %}
+{% endblock %}

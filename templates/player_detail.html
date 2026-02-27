@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}{{ player.ign }} – VCT Fantasy{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;"><a href="/tournament/{{ tournament.id }}/players" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← Players</a></div>
+
+<!-- Hero -->
+<div class="card" style="margin-bottom:1.5rem;border-left:3px solid var(--red);padding:1.75rem;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;flex-wrap:wrap;">
+        <div>
+            <div style="font-family:'Open Sans',sans-serif;font-size:2.8rem;font-weight:800;color:var(--accent);line-height:1;">{{ player.ign }}</div>
+            <div style="color:var(--red);font-weight:700;letter-spacing:.1em;font-size:1rem;margin-top:4px;">{{ player.team or player.team_abbr or 'Unknown' }}</div>
+            <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.6rem;">
+                <span class="badge badge-role badge-{{ player.role }}">{{ player.role|upper }}</span>
+                {% if player.region %}<span class="badge badge-region">{{ player.region }}</span>{% endif %}
+                {% if player.agent %}<span class="badge badge-agent">{{ player.agent[:30] }}</span>{% endif %}
+            </div>
+        </div>
+        <div style="text-align:right;">
+            <div style="color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;">Fantasy Points</div>
+            <div style="font-family:'Open Sans',sans-serif;font-size:3.5rem;font-weight:800;color:var(--yellow);line-height:1;">
+                {{ "%.1f"|format(player.fantasy_points + (player.manual_pts|default(0))) }}
+            </div>
+            {% if player.manual_pts|default(0) != 0 %}
+            <div style="color:var(--blue);font-size:.78rem;">incl. {{ "%+.1f"|format(player.manual_pts) }} manual adj</div>
+            {% endif %}
+            <div style="color:var(--muted);font-size:.8rem;">{{ player.matches_played or player.rounds_played or 0 }} matches</div>
+        </div>
+    </div>
+</div>
+
+<!-- Role selector + region + point adjustment -->
+<div class="grid-3" style="margin-bottom:1.5rem;">
+    <div class="card">
+        <div class="card-title">🎭 Set Role</div>
+        {% if admin %}
+        <form method="POST" action="/tournament/{{ tournament.id }}/player/{{ player.player_id }}/set_role" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+            <select name="role">
+                {% for r in ['duelist','initiator','controller','sentinel','flex'] %}
+                <option value="{{ r }}" {{ 'selected' if player.role == r }}>{{ r|upper }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        </form>
+        {% else %}
+        <span class="badge badge-role badge-{{ player.role }}">{{ player.role|upper }}</span>
+        {% endif %}
+    </div>
+    <div class="card">
+        <div class="card-title">🌍 Set Region</div>
+        {% if admin %}
+        <form method="POST" action="/tournament/{{ tournament.id }}/player/{{ player.player_id }}/set_region" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+            <select name="region">
+                <option value="">Unknown</option>
+                {% for reg in ['EMEA','AMER','APAC','CN'] %}
+                <option value="{{ reg }}" {{ 'selected' if player.region == reg }}>{{ reg }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        </form>
+        {% else %}
+        <span class="badge badge-region">{{ player.region or '—' }}</span>
+        {% endif %}
+    </div>
+    <div class="card">
+        <div class="card-title">✏️ Manual Pts Adjust</div>
+        {% if admin %}
+        <form method="POST" action="/tournament/{{ tournament.id }}/player/{{ player.player_id }}/adjust" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+            <input type="number" name="delta" step="0.5" placeholder="e.g. +10 or -5" style="width:120px;">
+            <input type="text" name="reason" placeholder="Reason…" style="flex:1;min-width:100px;">
+            <button type="submit" class="btn btn-warning btn-sm">Apply</button>
+        </form>
+        {% endif %}
+        <div style="margin-top:.5rem;font-size:.8rem;color:var(--muted);">Current adj: <strong style="color:{{ 'var(--green)' if player.manual_pts|default(0) > 0 else 'var(--red)' if player.manual_pts|default(0) < 0 else 'var(--muted)' }};">{{ "%+.2f"|format(player.manual_pts|default(0)) }}</strong></div>
+    </div>
+</div>
+
+<!-- Adjustment history -->
+{% if adjustments %}
+<div class="card card-sm" style="margin-bottom:1.5rem;">
+    <div class="card-title">Adjustment History</div>
+    {% for a in adjustments %}
+    <div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:.84rem;">
+        <span class="mono" style="color:{{ 'var(--green)' if a.delta > 0 else 'var(--red)' }};font-weight:700;">{{ "%+.2f"|format(a.delta) }}</span>
+        <span style="color:var(--muted);">{{ a.reason or 'No reason given' }}</span>
+        <span style="color:var(--muted);margin-left:auto;font-size:.75rem;">{{ a.created_at[:16] if a.created_at else '' }}</span>
+        {% if admin %}
+        <form method="POST" action="/tournament/{{ tournament.id }}/player/{{ player.player_id }}/adjustment/{{ a.id }}/delete">
+            <input type="hidden" name="delta" value="{{ a.delta }}">
+            <button type="submit" class="btn btn-danger btn-xs" onclick="return confirm('Remove this adjustment?')">✕</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Points breakdown + Raw stats -->
+<div class="grid-2" style="margin-bottom:1.5rem;">
+    <div class="card">
+        <div class="card-title">📊 Points Breakdown</div>
+        <table><tbody>
+        <tr><td style="color:var(--muted);">Kills (×4)</td><td class="mono pts-positive">+{{ "%.1f"|format(breakdown.kill_pts) }}</td></tr>
+        <tr><td style="color:var(--muted);">Deaths (×-6)</td><td class="mono pts-negative">{{ "%.1f"|format(breakdown.death_pts) }}</td></tr>
+        <tr><td style="color:var(--muted);">Assists (×1)</td><td class="mono">+{{ "%.1f"|format(breakdown.assist_pts) }}</td></tr>
+        <tr><td style="color:var(--muted);">ACS×(KAST/5)</td><td class="mono">+{{ "%.1f"|format(breakdown.acs_kast) }}</td></tr>
+        <tr><td style="color:var(--muted);">First Kills (×2)</td><td class="mono pts-positive">+{{ "%.1f"|format(breakdown.fk_pts) }}</td></tr>
+        <tr><td style="color:var(--muted);">First Deaths (×-4)</td><td class="mono pts-negative">{{ "%.1f"|format(breakdown.fd_pts) }}</td></tr>
+        <tr><td style="color:var(--muted);">ADR (×0.2)</td><td class="mono">+{{ "%.1f"|format(breakdown.adr_pts) }}</td></tr>
+        <tr style="border-top:1px solid var(--border);"><td style="font-weight:700;">Base Total</td><td class="mono pts-neutral" style="font-weight:700;">{{ "%.1f"|format(breakdown.base) }}</td></tr>
+        <tr><td style="color:var(--blue);">Role Bonus ({{ player.role|upper }})</td><td class="mono" style="color:var(--blue);">{{ "%+.1f"|format(breakdown.role_bonus) }}</td></tr>
+        {% if player.manual_pts|default(0) != 0 %}
+        <tr><td style="color:var(--blue);">Manual Adjustment</td><td class="mono" style="color:var(--blue);">{{ "%+.1f"|format(player.manual_pts) }}</td></tr>
+        {% endif %}
+        <tr style="border-top:2px solid var(--red);"><td style="font-weight:700;color:var(--yellow);">TOTAL</td><td class="mono" style="font-weight:700;color:var(--yellow);font-size:1.1rem;">{{ "%.1f"|format(breakdown.total + (player.manual_pts|default(0))) }}</td></tr>
+        </tbody></table>
+    </div>
+    <div class="card">
+        <div class="card-title">⚔️ Raw Stats</div>
+        <table><tbody>
+        {% for label, val in [
+            ('Rating', "%.2f"|format(player.rating)),
+            ('ACS', "%.0f"|format(player.acs)),
+            ('Kills', player.kills),('Deaths', player.deaths),('Assists', player.assists),
+            ('K/D', "%.2f"|format(player.kd_ratio)),
+            ('KAST', "%.0f"|format(player.kast)+'%'),
+            ('ADR', "%.0f"|format(player.adr)),
+            ('First Kills', player.first_kills),('First Deaths', player.first_deaths),
+            ('FK/FD', "%.2f"|format(player.fk_fd_ratio))
+        ] %}
+        <tr><td style="color:var(--muted);">{{ label }}</td><td class="mono" style="font-weight:700;">{{ val }}</td></tr>
+        {% endfor %}
+        </tbody></table>
+        {% if player.vlr_url %}<div style="margin-top:1rem;"><a href="{{ player.vlr_url }}" target="_blank" class="btn btn-secondary btn-sm">VLR Profile ↗</a></div>{% endif %}
+    </div>
+</div>
+
+<!-- All-role points table -->
+<div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">🎯 Points by Role (Hypothetical)</div>
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap;">
+        {% for role in ['duelist','initiator','controller','sentinel','flex'] %}
+        {% set pts = role_pts.get(role, 0) %}
+        <div style="text-align:center;flex:1;min-width:100px;padding:.75rem;background:var(--dark3);border-radius:6px;border:1px solid {{ 'var(--red)' if player.role == role else 'var(--border)' }};">
+            <div><span class="badge badge-role badge-{{ role }}">{{ role|upper }}</span></div>
+            <div style="font-family:'Open Sans',sans-serif;font-size:1.5rem;font-weight:800;color:{{ 'var(--yellow)' if player.role == role else 'var(--accent)' }};margin-top:.4rem;">{{ "%.1f"|format(pts) }}</div>
+            {% if player.role == role %}<div style="font-size:.68rem;color:var(--muted);">current</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Add to team + Current teams -->
+<div class="grid-2">
+    <div class="card">
+        <div class="card-title">+ Add to Fantasy Team</div>
+        {% if available_teams %}
+        {% if admin %}
+        <form method="POST" action="/team/0/add_player" id="add-form">
+            <div class="form-group">
+                <label>Select Team</label>
+                <select name="team_id" id="team-select" onchange="document.getElementById('add-form').action='/team/'+this.value+'/add_player'">
+                    {% for t in available_teams %}<option value="{{ t.id }}">{{ t.league_name }} — {{ t.team_name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Role Slot</label>
+                <select name="role_slot">{% for r in ['duelist','initiator','controller','sentinel','flex'] %}<option value="{{ r }}" {{ 'selected' if player.role == r }}>{{ r|upper }}</option>{% endfor %}</select>
+            </div>
+            <input type="hidden" name="player_id" value="{{ player.player_id }}">
+            <button type="submit" class="btn btn-success">+ Add to Roster</button>
+        </form>
+        <script>document.addEventListener('DOMContentLoaded',()=>{const s=document.getElementById('team-select');if(s)document.getElementById('add-form').action='/team/'+s.value+'/add_player';});</script>
+        {% endif %}
+        {% else %}
+        <div style="color:var(--muted);font-size:.88rem;">No teams available.</div>
+        {% endif %}
+    </div>
+    <div class="card">
+        <div class="card-title">🏟 Currently On</div>
+        {% if assignments %}
+        {% for a in assignments %}
+        <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem 0;border-bottom:1px solid var(--border);">
+            <div><span style="font-weight:700;">{{ a.team_name }}</span><span class="badge badge-{{ a.phase }}" style="margin-left:.3rem;">{{ a.phase }}</span></div>
+            <div style="margin-left:auto;"><a href="/team/{{ a.fantasy_team_id }}" class="btn btn-secondary btn-xs">Team →</a></div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="color:var(--muted);font-size:.88rem;">Not on any fantasy team yet.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

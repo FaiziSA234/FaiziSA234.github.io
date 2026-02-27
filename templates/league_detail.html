@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}{{ league.name }} – VCT Fantasy{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;">
+    <a href="/tournaments/{{ league.tournament_id }}" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← {{ league.tournament_name }}</a>
+</div>
+
+<div class="page-header">
+    <div>
+        <div class="page-title">{{ league.name }}</div>
+        <div class="page-subtitle">{{ league.description or '' }}</div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        <a href="/league/{{ league.id }}/commissioner" class="btn btn-warning">👑 Commissioner</a>
+        <a href="/league/{{ league.id }}/trades" class="btn btn-info">↔ Trades</a>
+        <a href="/league/{{ league.id }}/draft" class="btn btn-secondary">🎯 Draft</a>
+        <a href="/league/{{ league.id }}/create_team" class="btn btn-primary">+ Add Team</a>
+    </div>
+</div>
+
+<!-- Phase banner -->
+{% set single = ruleset.get('single_phase', False) %}
+<div class="phase-banner phase-{{ league.phase if not single else 'single' }}">
+    <span>{{ 'SINGLE PHASE LEAGUE' if single else 'PHASE: ' + league.phase|upper }}</span>
+    {% if admin and not single %}
+    <form method="POST" action="/league/{{ league.id }}/advance_phase" style="margin-left:auto;">
+        <button type="submit" class="btn btn-secondary btn-sm" onclick="return confirm('Advance phase?')">
+            → Advance to {{ 'Playoffs' if league.phase == 'swiss' else 'Swiss' }}
+        </button>
+    </form>
+    {% endif %}
+    <a href="/league/{{ league.id }}/edit_ruleset" class="btn btn-secondary btn-sm" style="{{ 'margin-left:auto;' if single }}">⚙ Ruleset</a>
+</div>
+
+<!-- Ruleset summary -->
+<div class="card card-sm" style="margin-bottom:1.25rem;">
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.83rem;color:var(--muted);">
+        <span>Players: <strong style="color:var(--text);">{{ ruleset.total_players }}</strong></span>
+        <span>Max/team: <strong style="color:var(--text);">{{ ruleset.max_per_team }}</strong></span>
+        {% for role, cnt in ruleset.role_requirements.items() %}{% if cnt > 0 %}<span><span class="badge badge-role badge-{{ role }}">{{ role|upper }}</span> ×{{ cnt }}</span>{% endif %}{% endfor %}
+        {% if ruleset.star_player_enabled %}<span style="color:var(--yellow);">⭐ Star Player</span>{% endif %}
+        {% if single %}<span style="color:var(--green);">Single Phase</span>{% endif %}
+    </div>
+</div>
+
+<!-- Standings tabs -->
+{% if single %}
+<!-- Single phase — one leaderboard -->
+<div class="card" style="margin-bottom:1.25rem;">
+    <div class="card-title">🏆 Standings</div>
+    {% if standings %}
+    <div class="table-wrap"><table>
+        <thead><tr><th>#</th><th>Team</th><th>Manager</th><th>Players</th><th>Player Pts</th><th>⭐</th><th>Team Pts</th><th>Manual</th><th>Total</th></tr></thead>
+        <tbody>
+        {% for s in standings %}
+        <tr>
+            <td style="font-family:'Open Sans',sans-serif;font-size:1.1rem;font-weight:800;color:{{ 'var(--yellow)' if loop.index == 1 else 'var(--red)' if loop.index <= 3 else 'var(--muted)' }};">{{ loop.index }}</td>
+            <td><a class="player-link" href="/team/{{ s.id }}">{{ s.team_name }}</a></td>
+            <td style="color:var(--muted);">{{ s.manager_name }}</td>
+            <td class="mono">{{ s.player_count }}</td>
+            <td class="mono">{{ "%.1f"|format(s.player_pts) }}</td>
+            <td class="mono" style="color:var(--yellow);">{{ "+%.1f"|format(s.star_bonus) if s.star_bonus else "—" }}</td>
+            <td class="mono" style="color:{{ "var(--green)" if s.follow_pts > 0 else "var(--red)" if s.follow_pts < 0 else "var(--muted)" }};">{{ "%+.1f"|format(s.follow_pts) if s.follow_pts != 0 else "—" }}</td>
+            <td class="mono" style="color:{{ "var(--green)" if s.adj_pts > 0 else "var(--red)" if s.adj_pts < 0 else "var(--muted)" }};">{{ "%+.1f"|format(s.adj_pts) if s.adj_pts != 0 else "—" }}</td>
+            <td class="mono pts-neutral" style="font-size:1rem;font-weight:700;">{{ "%.1f"|format(s.total_points) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty" style="padding:1.5rem 0;"><span class="big" style="font-size:2rem;">EMPTY</span>No teams yet.</div>
+    {% endif %}
+</div>
+{% else %}
+<div class="tabs" id="league-tabs">
+    <a class="tab active" data-tab="overall" href="#">Overall</a>
+    <a class="tab" data-tab="swiss" href="#">Swiss</a>
+    <a class="tab" data-tab="playoffs" href="#">Playoffs</a>
+</div>
+
+{% macro standings_table(rows, show_split=False) %}
+{% if rows %}
+<div class="table-wrap"><table>
+    <thead><tr>
+        <th>#</th><th>Team</th><th>Manager</th>
+        {% if show_split %}<th>Swiss</th><th>Playoffs</th>{% else %}
+        <th>Players</th><th>Player Pts</th><th>⭐</th><th>Team Pts</th><th>Manual</th>{% endif %}
+        <th>Total</th>
+    </tr></thead>
+    <tbody>
+    {% for s in rows %}
+    <tr>
+        <td style="font-family:'Open Sans',sans-serif;font-size:1.1rem;font-weight:800;color:{{ 'var(--yellow)' if loop.index == 1 else 'var(--red)' if loop.index <= 3 else 'var(--muted)' }};">{{ loop.index }}</td>
+        <td><a class="player-link" href="/team/{{ s.id }}">{{ s.team_name }}</a></td>
+        <td style="color:var(--muted);">{{ s.manager_name }}</td>
+        {% if show_split %}
+        <td class="mono">{{ "%.1f"|format(s.swiss_pts) }}</td>
+        <td class="mono">{{ "%.1f"|format(s.playoffs_pts) }}</td>
+        {% else %}
+        <td class="mono">{{ s.player_count }}</td>
+        <td class="mono">{{ "%.1f"|format(s.player_pts) }}</td>
+        <td class="mono" style="color:var(--yellow);">{{ "+%.1f"|format(s.star_bonus) if s.star_bonus else '—' }}</td>
+        <td class="mono" style="color:{{ 'var(--green)' if s.follow_pts > 0 else 'var(--red)' if s.follow_pts < 0 else 'var(--muted)' }};">{{ "%+.1f"|format(s.follow_pts) if s.follow_pts != 0 else '—' }}</td>
+        <td class="mono" style="color:{{ 'var(--green)' if s.adj_pts > 0 else 'var(--red)' if s.adj_pts < 0 else 'var(--muted)' }};">{{ "%+.1f"|format(s.adj_pts) if s.adj_pts != 0 else '—' }}</td>
+        {% endif %}
+        <td class="mono pts-neutral" style="font-size:1rem;font-weight:700;">{{ "%.1f"|format(s.total_points) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+{% else %}
+<div class="empty" style="padding:1.5rem 0;"><span class="big" style="font-size:2rem;">EMPTY</span>No teams yet.</div>
+{% endif %}
+{% endmacro %}
+
+<div class="tab-panel active" id="tab-overall">
+<div class="card">
+    <div class="card-title">🏆 Overall Standings</div>
+    {{ standings_table(overall_standings, show_split=True) }}
+</div>
+</div>
+<div class="tab-panel" id="tab-swiss">
+<div class="card">
+    <div class="card-title">🔵 Swiss Stage Standings</div>
+    {{ standings_table(swiss_standings) }}
+</div>
+</div>
+<div class="tab-panel" id="tab-playoffs">
+<div class="card">
+    <div class="card-title">🟡 Playoffs Standings</div>
+    {{ standings_table(playoffs_standings) }}
+</div>
+</div>
+{% endif %}
+
+<!-- Teams -->
+<div class="card" style="margin-top:1.25rem;">
+    <div class="card-title">⚡ Teams ({{ teams|length }})</div>
+    {% for t in teams %}
+    <div style="display:flex;align-items:center;gap:.6rem;padding:.55rem 0;border-bottom:1px solid var(--border);">
+        <div>
+            <span style="font-weight:700;color:var(--accent);">{{ t.team_name }}</span>
+            <span style="color:var(--muted);font-size:.82rem;margin-left:.4rem;">mgr: {{ t.manager_name }}</span>
+        </div>
+        <div style="margin-left:auto;"><a href="/team/{{ t.id }}" class="btn btn-secondary btn-xs">Manage →</a></div>
+    </div>
+    {% else %}
+    <div style="color:var(--muted);font-size:.88rem;padding:.5rem 0;">No teams yet.</div>
+    {% endfor %}
+    <div style="margin-top:.9rem;"><a href="/league/{{ league.id }}/create_team" class="btn btn-primary btn-sm">+ Add Team</a></div>
+</div>
+
+{% if draft %}
+<div class="section-div">Active Draft</div>
+<div class="scrape-bar">
+    <div class="info">Draft <strong>{{ draft.status }}</strong> · Pick {{ draft.current_pick }}/{{ draft.total_picks }} · Phase: <strong>{{ draft.phase }}</strong></div>
+    <a href="/league/{{ league.id }}/draft" class="btn btn-primary btn-sm" style="margin-left:auto;">Go to Draft →</a>
+</div>
+{% endif %}
+
+{% set pending = trades | selectattr('status','equalto','pending') | list %}
+{% if pending %}
+<div class="section-div">Pending Trades ({{ pending|length }})</div>
+{% for trade in pending %}
+<div class="scrape-bar" style="border-color:var(--yellow);">
+    <span style="color:var(--yellow);">↔</span>
+    <span><strong>{{ trade.from_team_name }}</strong> offers <strong style="color:var(--red);">{{ trade.from_player_ign }}</strong></span>
+    <span style="color:var(--muted);">for</span>
+    <span><strong>{{ trade.to_team_name }}</strong>'s <strong style="color:var(--green);">{{ trade.to_player_ign }}</strong></span>
+    <div style="margin-left:auto;display:flex;gap:.4rem;">
+        {% if admin %}
+        <form method="POST" action="/trade/{{ trade.id }}/accept"><button type="submit" class="btn btn-success btn-xs">Accept</button></form>
+        <form method="POST" action="/trade/{{ trade.id }}/reject"><button type="submit" class="btn btn-danger btn-xs">Reject</button></form>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<div style="margin-top:1.25rem;display:flex;gap:.5rem;flex-wrap:wrap;">
+    {% if admin %}
+    <form method="POST" action="/league/{{ league.id }}/delete" onsubmit="return confirm('Delete this league?')">
+        <button type="submit" class="btn btn-danger btn-sm">Delete League</button>
+    </form>
+    {% endif %}
+</div>
+
+<script>
+document.querySelectorAll('#league-tabs .tab').forEach(tab => {
+    tab.addEventListener('click', e => {
+        e.preventDefault();
+        document.querySelectorAll('#league-tabs .tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+});
+</script>
+{% endblock %}

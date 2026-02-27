@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Create Team – {{ league.name }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;"><a href="/league/{{ league.id }}" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← {{ league.name }}</a></div>
+<div class="page-header">
+    <div><div class="page-title">CREATE <span>TEAM</span></div><div class="page-subtitle">in {{ league.name }}</div></div>
+</div>
+<div style="max-width:480px;">
+<div class="card">
+{% if admin %}
+<form method="POST" action="/league/{{ league.id }}/create_team">
+    <div class="form-group"><label>Team Name *</label><input type="text" name="team_name" placeholder="e.g. Fracture Fanatics" required maxlength="60"></div>
+    <div class="form-group"><label>Manager Name *</label><input type="text" name="manager_name" placeholder="Your name" required maxlength="60"></div>
+    <div style="display:flex;gap:.75rem;">
+        <button type="submit" class="btn btn-primary">Create Team →</button>
+        <a href="/league/{{ league.id }}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endif %}
+</div>
+</div>
+{% endblock %}

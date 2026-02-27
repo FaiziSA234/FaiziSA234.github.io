@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Login – VCT Fantasy Hub{% endblock %}
+{% block content %}
+<div style="min-height:70vh;display:flex;align-items:center;justify-content:center;">
+  <div style="width:100%;max-width:380px;">
+    <div class="card">
+      <div style="text-align:center;margin-bottom:1.8rem;">
+        <div style="font-family:'Open Sans',sans-serif;font-size:1.8rem;font-weight:800;color:var(--red);letter-spacing:.05em;">VCT FANTASY</div>
+        <div style="color:var(--muted);font-size:.85rem;margin-top:4px;letter-spacing:.1em;text-transform:uppercase;">Commissioner Login</div>
+      </div>
+
+      {% with msgs = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in msgs %}
+          <div class="flash flash-{{cat}}" style="margin-bottom:1rem;">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('login') }}">
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" name="username" autocomplete="username" autofocus required>
+        </div>
+        <div class="form-group" style="margin-top:.9rem;">
+          <label>Password</label>
+          <input type="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-red" style="width:100%;margin-top:1.4rem;justify-content:center;font-size:.95rem;padding:9px;">
+          LOGIN
+        </button>
+      </form>
+    </div>
+    <p style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:1rem;">
+      Viewers can browse the hub without logging in.
+    </p>
+  </div>
+</div>
+{% endblock %}

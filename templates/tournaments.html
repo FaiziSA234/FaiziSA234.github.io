@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Tournaments – VCT Fantasy{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><div class="page-title">TOURNAMENTS</div><div class="page-subtitle">{{ tournaments|length }} tournament{{ 's' if tournaments|length != 1 }}</div></div>
+    <a href="/tournaments/create" class="btn btn-primary">+ New Tournament</a>
+</div>
+{% if tournaments %}
+{% for t in tournaments %}
+<div class="card" style="margin-bottom:1rem;border-left:3px solid var(--red);">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+        <div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--accent);letter-spacing:.05em;">{{ t.name }}</div>
+            <div style="color:var(--muted);font-size:.85rem;margin-bottom:.75rem;">{{ t.description or '' }}</div>
+            <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.75rem;">
+                <span class="badge badge-{{ t.status }}">{{ t.status }}</span>
+                <span class="badge badge-team">{{ t.players }} players</span>
+                <span class="badge badge-region">{{ t.sources|length }} sources</span>
+                <span class="badge badge-team">{{ t.leagues|length }} leagues</span>
+            </div>
+            {% if t.sources %}
+            <div style="color:var(--muted);font-size:.8rem;">
+                {% for s in t.sources %}<span class="badge badge-region" style="margin-right:3px;">{{ s.region or '?' }} · {{ s.event_name or s.vlr_url[:40] }}</span>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <div style="display:flex;gap:.5rem;flex-direction:column;align-items:flex-end;">
+            <a href="/tournaments/{{ t.id }}" class="btn btn-primary btn-sm">Manage →</a>
+            {% if admin %}
+<form method="POST" action="/tournaments/{{ t.id }}/delete" onsubmit="return confirm('Delete this tournament and all its data?')">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+            </form>
+{% endif %}
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty"><span class="big">EMPTY</span>No tournaments yet.</div>
+<div style="text-align:center;"><a href="/tournaments/create" class="btn btn-primary">+ Create First Tournament</a></div>
+{% endif %}
+{% endblock %}

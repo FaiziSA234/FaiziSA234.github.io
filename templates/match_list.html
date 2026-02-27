@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Matches – {{ tournament.name }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;"><a href="/tournaments/{{ tournament.id }}" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← {{ tournament.name }}</a></div>
+
+<div class="page-header">
+    <div>
+        <div class="page-title">MATCH <span>LIST</span></div>
+        <div class="page-subtitle">{{ completed|length }} completed · {{ upcoming|length }} upcoming</div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        {% if admin %}
+        <form method="POST" action="/tournament/{{ tournament.id }}/scrape_upcoming">
+            <button type="submit" class="btn btn-info btn-sm">⟳ Fetch Upcoming</button>
+        </form>
+        {% endif %}
+        <a href="/tournament/{{ tournament.id }}/players" class="btn btn-secondary btn-sm">Player Stats →</a>
+    </div>
+</div>
+
+{% if upcoming %}
+<div class="section-div">Upcoming Matches</div>
+{% for m in upcoming %}
+<a href="/tournament/{{ tournament.id }}/matches/{{ m.match_id }}" style="text-decoration:none;color:inherit;">
+<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:1rem;padding:.75rem 1.25rem;background:var(--dark2);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:4px;margin-bottom:.5rem;">
+    <div style="text-align:right;font-weight:700;color:var(--accent);">{{ m.team_a }}</div>
+    <div style="text-align:center;min-width:100px;">
+        <div style="color:var(--blue);font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;">UPCOMING</div>
+        {% if m.scheduled_at %}<div style="color:var(--muted);font-size:.76rem;margin-top:2px;">{{ m.scheduled_at }}</div>{% endif %}
+    </div>
+    <div style="font-weight:700;color:var(--accent);">{{ m.team_b }}</div>
+</div>
+</a>
+{% endfor %}
+{% endif %}
+
+<div class="section-div">Completed Matches ({{ completed|length }})</div>
+
+{% if completed %}
+<div style="display:flex;flex-direction:column;gap:.4rem;">
+{% for m in completed %}
+{# Determine winner based on score — score_a belongs to team_a (left), score_b to team_b (right) #}
+{% set sa = m.score_a | default(0) | int %}
+{% set sb = m.score_b | default(0) | int %}
+{% set a_won = sa > sb %}
+{% set b_won = sb > sa %}
+{% set fmt = (m.match_format or '').upper() or ('BO5' if (sa + sb) > 3 else 'BO3') %}
+{% set has_score = sa > 0 or sb > 0 %}
+
+<a href="/tournament/{{ tournament.id }}/matches/{{ m.match_id }}" style="text-decoration:none;color:inherit;">
+<div style="display:grid;grid-template-columns:1fr 120px 1fr;align-items:center;gap:1rem;padding:.75rem 1.25rem;background:var(--dark2);border:1px solid var(--border);border-radius:4px;transition:background .12s;" onmouseover="this.style.borderColor='var(--red)'" onmouseout="this.style.borderColor='var(--border)'">
+
+    {# Team A — right-aligned #}
+    <div style="text-align:right;">
+        <div style="font-weight:700;font-size:1rem;color:{{ 'var(--accent)' if a_won else 'var(--muted)' if has_score else 'var(--accent)' }};">{{ m.team_a }}</div>
+        {% if a_won %}<div style="font-size:.65rem;color:var(--green);letter-spacing:.1em;font-weight:700;margin-top:1px;">WINNER</div>{% endif %}
+    </div>
+
+    {# Score centre #}
+    <div style="text-align:center;">
+        {% if has_score %}
+        <div style="font-family:'Open Sans',sans-serif;font-size:1.5rem;font-weight:800;line-height:1;letter-spacing:.03em;">
+            <span style="color:{{ 'var(--green)' if a_won else 'var(--muted)' }};">{{ sa }}</span>
+            <span style="color:var(--dark4);margin:0 4px;">–</span>
+            <span style="color:{{ 'var(--green)' if b_won else 'var(--muted)' }};">{{ sb }}</span>
+        </div>
+        <div style="font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:2px;">{{ fmt }}</div>
+        {% else %}
+        <div style="color:var(--muted);font-size:.8rem;letter-spacing:.05em;">— vs —</div>
+        {% endif %}
+    </div>
+
+    {# Team B — left-aligned #}
+    <div>
+        <div style="font-weight:700;font-size:1rem;color:{{ 'var(--accent)' if b_won else 'var(--muted)' if has_score else 'var(--accent)' }};">{{ m.team_b }}</div>
+        {% if b_won %}<div style="font-size:.65rem;color:var(--green);letter-spacing:.1em;font-weight:700;margin-top:1px;">WINNER</div>{% endif %}
+    </div>
+
+</div>
+</a>
+{% endfor %}
+</div>
+
+{% else %}
+<div class="empty"><span class="big">NO MATCHES</span>Scrape an event source to load match data.</div>
+{% endif %}
+{% endblock %}

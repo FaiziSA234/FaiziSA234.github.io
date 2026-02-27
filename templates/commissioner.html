@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Commissioner – {{ league.name }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;"><a href="/league/{{ league.id }}" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← {{ league.name }}</a></div>
+<div class="page-header">
+    <div><div class="page-title">👑 <span>COMMISSIONER</span></div><div class="page-subtitle">{{ league.name }} · {{ tournament.name }}</div></div>
+</div>
+
+<!-- Standings overview -->
+<div class="card" style="margin-bottom:1.25rem;">
+    <div class="card-title">📊 Current Standings</div>
+    <div class="table-wrap"><table>
+        <thead><tr><th>#</th><th>Team</th><th>Manager</th><th>Phase</th><th>Players</th><th>Player Pts</th><th>Star</th><th>Follow</th><th>Adjustments</th><th>TOTAL</th></tr></thead>
+        <tbody>
+        {% for s in standings %}
+        <tr>
+            <td style="font-family:'Bebas Neue',sans-serif;color:{{ 'var(--yellow)' if loop.index == 1 else 'var(--red)' }};">{{ loop.index }}</td>
+            <td><a class="player-link" href="/team/{{ s.id }}">{{ s.team_name }}</a></td>
+            <td style="color:var(--muted);">{{ s.manager_name }}</td>
+            <td><span class="badge badge-{{ league.phase }}">{{ league.phase }}</span></td>
+            <td class="mono">{{ s.player_count }}</td>
+            <td class="mono">{{ "%.1f"|format(s.player_pts) }}</td>
+            <td class="mono" style="color:var(--yellow);">{{ "%+.1f"|format(s.star_bonus) if s.star_bonus else '—' }}</td>
+            <td class="mono {{ 'pts-positive' if s.follow_pts > 0 else 'pts-negative' if s.follow_pts < 0 else '' }}">{{ "%+.1f"|format(s.follow_pts) if s.follow_pts != 0 else '—' }}</td>
+            <td class="mono {{ 'pts-positive' if s.adj_pts > 0 else 'pts-negative' if s.adj_pts < 0 else '' }}">{{ "%+.1f"|format(s.adj_pts) if s.adj_pts != 0 else '—' }}</td>
+            <td class="mono pts-neutral" style="font-size:1rem;font-weight:700;">{{ "%.1f"|format(s.total_points) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+</div>
+
+<!-- Phase control -->
+<div class="grid-2" style="margin-bottom:1.25rem;">
+    <div class="card">
+        <div class="card-title">⚙️ League Phase Control</div>
+        <p style="color:var(--muted);font-size:.88rem;margin-bottom:.75rem;">Current phase: <span class="badge badge-{{ league.phase }}">{{ league.phase }}</span></p>
+        {% if admin %}
+<form method="POST" action="/league/{{ league.id }}/advance_phase">
+            <button type="submit" class="btn btn-warning" onclick="return confirm('Advance phase?')">
+                → Move to {{ 'PLAYOFFS' if league.phase == 'swiss' else 'SWISS' }}
+            </button>
+        </form>
+{% endif %}
+        <p style="color:var(--muted);font-size:.8rem;margin-top:.6rem;">
+            Moving to Playoffs: players who didn't qualify should be removed from rosters manually, then teams redraft for the playoffs phase.
+        </p>
+    </div>
+    <div class="card">
+        <div class="card-title">📋 Pending Trades</div>
+        {% set pending = trades | selectattr('status','equalto','pending') | list %}
+        {% if pending %}
+        {% for trade in pending %}
+        <div style="padding:.5rem 0;border-bottom:1px solid var(--border);font-size:.85rem;">
+            <span style="color:var(--yellow);">↔</span>
+            <strong>{{ trade.from_team_name }}</strong> → <strong style="color:var(--red);">{{ trade.from_player_ign }}</strong>
+            for <strong>{{ trade.to_team_name }}</strong>'s <strong style="color:var(--green);">{{ trade.to_player_ign }}</strong>
+            <div style="display:flex;gap:.3rem;margin-top:.4rem;">
+                {% if admin %}
+<form method="POST" action="/trade/{{ trade.id }}/accept"><button type="submit" class="btn btn-success btn-xs">✓ Accept</button></form>
+{% endif %}
+                {% if admin %}
+<form method="POST" action="/trade/{{ trade.id }}/reject"><button type="submit" class="btn btn-danger btn-xs">✕ Reject</button></form>
+{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="color:var(--muted);font-size:.88rem;">No pending trades.</div>
+        {% endif %}
+        <div style="margin-top:.75rem;"><a href="/league/{{ league.id }}/trades" class="btn btn-secondary btn-sm">All Trades →</a></div>
+    </div>
+</div>
+
+<!-- Per-team adjustment -->
+<div class="section-div">Manual Point Adjustments</div>
+<div class="grid-3">
+{% for t in teams %}
+<div class="card card-sm">
+    <div style="font-weight:700;color:var(--accent);margin-bottom:.4rem;">{{ t.team_name }}</div>
+    <div style="color:var(--muted);font-size:.8rem;margin-bottom:.5rem;">{{ t.manager_name }} · adj total: <span class="mono {{ 'pts-positive' if t.adj_total >= 0 else 'pts-negative' }}">{{ "%+.1f"|format(t.adj_total) }}</span></div>
+    {% if t.adjustments %}
+    <div style="max-height:100px;overflow-y:auto;margin-bottom:.5rem;">
+    {% for a in t.adjustments %}
+    <div style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;padding:.2rem 0;border-bottom:1px solid var(--border);">
+        <span class="mono {{ 'pts-positive' if a.amount >= 0 else 'pts-negative' }}">{{ "%+.1f"|format(a.amount) }}</span>
+        <span style="color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;">{{ a.reason or '—' }}</span>
+        {% if admin %}
+<form method="POST" action="/adjustment/{{ a.id }}/delete" style="display:inline;">
+            <button type="submit" class="btn btn-danger btn-xs">✕</button>
+        </form>
+{% endif %}
+    </div>
+    {% endfor %}
+    </div>
+    {% endif %}
+    {% if admin %}
+<form method="POST" action="/team/{{ t.id }}/add_adjustment">
+        <div style="display:flex;gap:.3rem;margin-bottom:.3rem;">
+            <input type="number" name="amount" placeholder="pts" step="0.5" style="width:70px;font-size:.82rem;padding:4px 6px;" required>
+            <input type="text" name="reason" placeholder="reason" style="flex:1;font-size:.82rem;padding:4px 6px;">
+        </div>
+        <button type="submit" class="btn btn-primary btn-xs">+ Add</button>
+    </form>
+{% endif %}
+</div>
+{% endfor %}
+</div>
+{% endblock %}

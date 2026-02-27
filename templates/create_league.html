@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Create League – VCT Fantasy{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;"><a href="/tournaments/{{ tournament.id }}" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← {{ tournament.name }}</a></div>
+<div class="page-header"><div><div class="page-title">CREATE <span>LEAGUE</span></div><div class="page-subtitle">For {{ tournament.name }}</div></div></div>
+
+{% if admin %}
+<form method="POST" action="/tournaments/{{ tournament.id }}/create_league" style="max-width:820px;">
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">League Info</div>
+            <div class="form-group"><label>League Name *</label><input type="text" name="name" placeholder="EMEA Kickoff Fantasy 2026" required maxlength="80"></div>
+            <div class="form-group"><label>Description</label><textarea name="description" rows="2" maxlength="200"></textarea></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Roster Size & Draft</div>
+            <div class="form-group"><label>Total Players per Team</label><input type="number" name="total_players" value="{{ default_ruleset.total_players }}" min="1" max="30"></div>
+            <div class="form-check"><input type="checkbox" name="snake_draft" id="snake_draft" {% if default_ruleset.snake_draft %}checked{% endif %}><label for="snake_draft">Snake Draft Format (A B C … C B A)</label></div>
+            <div class="form-check"><input type="checkbox" name="individual_locked" id="indiv_locked"><label for="indiv_locked">Individual Locked (no changes after draft)</label></div>
+        </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:1rem;">
+        <div class="card">
+            <div class="card-title">Role Requirements</div>
+            <div style="color:var(--muted);font-size:.82rem;margin-bottom:.75rem;">How many players of each role must be drafted.</div>
+            {% for role in ['duelist','initiator','controller','sentinel','flex'] %}
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;">
+                <span class="badge badge-role badge-{{ role }}" style="width:80px;text-align:center;">{{ role }}</span>
+                <input type="number" name="role_{{ role }}" value="{{ default_ruleset.role_requirements[role] }}" min="0" max="10" style="width:70px;">
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="card">
+            <div class="card-title">Region Requirements</div>
+            <div style="color:var(--muted);font-size:.82rem;margin-bottom:.75rem;">Minimum players from each VCT region.</div>
+            {% for reg in ['EMEA','AMER','APAC','CN'] %}
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;">
+                <span class="badge badge-region" style="width:55px;text-align:center;">{{ reg }}</span>
+                <input type="number" name="reg_{{ reg }}" value="{{ default_ruleset.region_requirements[reg] }}" min="0" max="10" style="width:70px;">
+            </div>
+            {% endfor %}
+            <div class="form-group" style="margin-top:.75rem;"><label>Max Players from Same Team</label><input type="number" name="max_per_team" value="{{ default_ruleset.max_per_team }}" min="1" max="5"></div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+        <div class="card-title">Swiss / Playoffs Format</div>
+        <div class="form-row">
+            <div>
+                <div class="form-check"><input type="checkbox" name="swiss_duplicate_allowed" id="swiss_dup" {% if default_ruleset.swiss_duplicate_allowed %}checked{% endif %}><label for="swiss_dup">Allow 1 duplicate player pick in Swiss phase</label></div>
+                <div class="form-group" style="margin-top:.75rem;max-width:200px;"><label>Required Unique Players (Swiss)</label><input type="number" name="swiss_unique_required" value="{{ default_ruleset.swiss_unique_required }}" min="1" max="20"></div>
+            </div>
+            <div>
+                <div class="form-check"><input type="checkbox" name="star_player_enabled" id="star_en" {% if default_ruleset.star_player_enabled %}checked{% endif %}><label for="star_en">Star Player (1.5× points for 1 player)</label></div>
+                <div class="form-check" style="margin-top:.5rem;"><input type="checkbox" name="team_following_enabled" id="team_follow" {% if default_ruleset.team_following_enabled %}checked{% endif %}><label for="team_follow">Team Following (win/loss points for followed VCT team)</label></div>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top:1.25rem;display:flex;gap:.75rem;">
+        <button type="submit" class="btn btn-primary">Create League →</button>
+        <a href="/tournaments/{{ tournament.id }}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endif %}
+{% endblock %}

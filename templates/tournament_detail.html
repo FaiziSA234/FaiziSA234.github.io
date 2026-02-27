@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}{{ tournament.name }} – VCT Fantasy{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;"><a href="/tournaments" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← Tournaments</a></div>
+<div class="page-header">
+    <div>
+        <div class="page-title">{{ tournament.name }}</div>
+        <div class="page-subtitle">{{ tournament.description or '' }} · Status: <strong>{{ tournament.status }}</strong></div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        {% if admin %}
+        <form method="POST" action="/tournaments/{{ tournament.id }}/scrape_all" onsubmit="this.querySelector('button').innerHTML='<span class=\'spinner\'></span> Scraping…';this.querySelector('button').disabled=true;">
+            <button type="submit" class="btn btn-primary">⟳ Scrape All Sources</button>
+        </form>
+        <form method="POST" action="/tournament/{{ tournament.id }}/scrape_rosters" title="Scrape player rosters from event teams page — no match data needed">
+            <button type="submit" class="btn btn-info">👥 Scrape Rosters</button>
+        </form>
+        <form method="POST" action="/tournaments/{{ tournament.id }}/recalculate">
+            <button type="submit" class="btn btn-secondary">↻ Recalculate Points</button>
+        </form>
+        {% endif %}
+        <a href="/tournament/{{ tournament.id }}/players" class="btn btn-secondary">Players →</a>
+        <a href="/tournament/{{ tournament.id }}/matches" class="btn btn-secondary">📋 Matches {% if match_count %}({{ match_count }}){% endif %}</a>
+        <a href="/tournaments/{{ tournament.id }}/create_league" class="btn btn-secondary">+ Add League</a>
+    </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:1.5rem;">
+    <!-- Event Sources -->
+    <div class="card">
+        <div class="card-title">📡 Event Sources</div>
+        {% if sources %}
+        {% for s in sources %}
+        <div style="display:flex;align-items:center;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--border);">
+            <div>
+                <span class="badge badge-region">{{ s.region or '?' }}</span>
+                <span style="font-weight:600;margin-left:.4rem;">{{ s.event_name or 'Unnamed' }}</span>
+                <div style="color:var(--muted);font-size:.78rem;margin-top:2px;">{{ s.vlr_url[:60] }}{% if s.vlr_url|length > 60 %}…{% endif %}</div>
+                {% if s.last_scraped %}<div style="color:var(--muted);font-size:.75rem;">Last: {{ s.last_scraped[:16] }} · {{ s.players_found }} players</div>{% endif %}
+            </div>
+            <div style="margin-left:auto;display:flex;gap:.4rem;">
+                {% if admin %}
+                <form method="POST" action="/tournaments/{{ tournament.id }}/scrape_source/{{ s.id }}">
+                    <button type="submit" class="btn btn-secondary btn-xs">⟳</button>
+                </form>
+                <form method="POST" action="/tournaments/{{ tournament.id }}/delete_source/{{ s.id }}" onsubmit="return confirm('Remove source?')">
+                    <button type="submit" class="btn btn-danger btn-xs">✕</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="color:var(--muted);font-size:.88rem;">No sources configured.</div>
+        {% endif %}
+
+        <div class="section-div" style="margin-top:1rem;margin-bottom:.75rem;font-size:.8rem;">Add Source</div>
+        {% if admin %}
+        <form method="POST" action="/tournaments/{{ tournament.id }}/add_source">
+            <div class="form-row-3" style="margin-bottom:.6rem;">
+                <div><label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Region</label>
+                    <select name="region"><option value="">—</option><option>EMEA</option><option>AMER</option><option>APAC</option><option>CN</option></select></div>
+                <div><label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Name</label>
+                    <input type="text" name="name" placeholder="EMEA Kickoff"></div>
+                <div><label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">VLR.gg URL</label>
+                    <input type="url" name="url" placeholder="https://www.vlr.gg/event/…" required></div>
+            </div>
+            <button type="submit" class="btn btn-success btn-sm">+ Add Source</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Top Players -->
+    <div class="card">
+        <div class="card-title">🏆 Top 10 by Fantasy Points</div>
+        {% if top_players %}
+        <div class="table-wrap"><table>
+            <thead><tr><th>#</th><th>Player</th><th>Team</th><th>Role</th><th>Pts</th></tr></thead>
+            <tbody>
+            {% for p in top_players %}
+            <tr>
+                <td style="color:var(--muted);">{{ loop.index }}</td>
+                <td><a class="player-link" href="/tournament/{{ tournament.id }}/player/{{ p.player_id }}">{{ p.ign }}</a></td>
+                <td><span class="badge badge-team">{{ p.team_abbr or '—' }}</span></td>
+                <td><span class="badge badge-role badge-{{ p.role }}">{{ p.role|upper }}</span></td>
+                <td class="mono pts-neutral">{{ "%.1f"|format(p.fantasy_points + (p.manual_pts|default(0))) }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+        <div style="margin-top:.9rem;"><a href="/tournament/{{ tournament.id }}/players" class="btn btn-secondary btn-sm">All Players →</a></div>
+        {% else %}
+        <div class="empty" style="padding:1.5rem 0;"><span class="big" style="font-size:2rem;">NO DATA</span>Run a scrape first.</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:1.5rem;">
+    <!-- Leagues -->
+    <div class="card">
+        <div class="card-title">⚡ Leagues</div>
+        {% if leagues %}
+        {% for lg in leagues %}
+        <div style="display:flex;align-items:center;gap:.6rem;padding:.55rem 0;border-bottom:1px solid var(--border);">
+            <div>
+                <span style="font-weight:700;color:var(--accent);">{{ lg.name }}</span>
+                <span class="badge badge-{{ lg.phase }}" style="margin-left:.4rem;">{{ lg.phase }}</span>
+            </div>
+            <div style="margin-left:auto;"><a href="/league/{{ lg.id }}" class="btn btn-secondary btn-xs">Open →</a></div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="color:var(--muted);font-size:.88rem;padding:.5rem 0;">No leagues yet.</div>
+        {% endif %}
+        <div style="margin-top:.9rem;"><a href="/tournaments/{{ tournament.id }}/create_league" class="btn btn-primary btn-sm">+ Create League</a></div>
+    </div>
+
+    <!-- Upcoming Matches -->
+    <div class="card">
+        <div class="card-title">📅 Upcoming Matches</div>
+        {% if upcoming_matches %}
+        {% for m in upcoming_matches %}
+        <a href="/tournament/{{ tournament.id }}/matches/{{ m.match_id }}" style="text-decoration:none;">
+        <div style="display:flex;align-items:center;gap:.5rem;padding:.45rem 0;border-bottom:1px solid var(--border);">
+            <span style="font-weight:700;color:var(--accent);flex:1;text-align:right;">{{ m.team_a }}</span>
+            <span style="color:var(--blue);font-size:.72rem;font-weight:700;min-width:40px;text-align:center;">VS</span>
+            <span style="font-weight:700;color:var(--accent);flex:1;">{{ m.team_b }}</span>
+            {% if m.scheduled_at %}<span style="color:var(--muted);font-size:.75rem;">{{ m.scheduled_at }}</span>{% endif %}
+        </div>
+        </a>
+        {% endfor %}
+        <div style="margin-top:.9rem;"><a href="/tournament/{{ tournament.id }}/matches" class="btn btn-secondary btn-sm">All Matches →</a></div>
+        {% else %}
+        <div style="color:var(--muted);font-size:.85rem;padding:.4rem 0;">No upcoming matches.</div>
+        <div style="margin-top:.6rem;display:flex;gap:.4rem;flex-wrap:wrap;">
+            <a href="/tournament/{{ tournament.id }}/matches" class="btn btn-secondary btn-sm">📋 Match List</a>
+            {% if admin %}
+            <form method="POST" action="/tournament/{{ tournament.id }}/scrape_upcoming">
+                <button type="submit" class="btn btn-info btn-sm">⟳ Fetch Upcoming</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Match Results (Team Follow) -->
+<div class="card">
+    <div class="card-title">📋 Match Results (Team Follow Points)</div>
+    {% if admin %}
+    <form method="POST" action="/tournaments/{{ tournament.id }}/add_result" style="margin-bottom:1rem;">
+        <div class="form-row" style="margin-bottom:.5rem;">
+            <div><label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Team Name</label>
+                <input type="text" name="team_name" placeholder="e.g. Fnatic" required></div>
+            <div><label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Opponent</label>
+                <input type="text" name="opponent" placeholder="e.g. NaVi"></div>
+        </div>
+        <div class="form-row" style="margin-bottom:.5rem;">
+            <div><label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Result</label>
+                <select name="result"><option value="win">Win</option><option value="loss">Loss</option></select></div>
+            <div><label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Format</label>
+                <select name="format"><option value="bo3">BO3 (W:+100 / L:-75)</option><option value="bo5">BO5 (W:+75 / L:-50)</option></select></div>
+        </div>
+        <button type="submit" class="btn btn-success btn-sm">+ Add Result</button>
+    </form>
+    {% endif %}
+    {% if match_results %}
+    <div style="max-height:220px;overflow-y:auto;">
+    {% for r in match_results %}
+    <div style="display:flex;align-items:center;gap:.5rem;padding:.35rem 0;border-bottom:1px solid var(--border);font-size:.85rem;">
+        <span style="font-weight:700;color:var(--accent);">{{ r.team_name }}</span>
+        <span class="{{ 'pts-positive' if r.result == 'win' else 'pts-negative' }}">{{ r.result|upper }}</span>
+        {% if r.opponent %}<span style="color:var(--muted);">vs {{ r.opponent }}</span>{% endif %}
+        <span class="badge badge-team">{{ r.format }}</span>
+        <span class="mono {{ 'pts-positive' if r.result == 'win' else 'pts-negative' }}">
+            {{ '+100' if r.result == 'win' and r.format == 'bo3' else '+75' if r.result == 'win' else '-75' if r.format == 'bo3' else '-50' }}
+        </span>
+        {% if admin %}
+        <form method="POST" action="/tournaments/{{ tournament.id }}/delete_result/{{ r.id }}" style="margin-left:auto;">
+            <button type="submit" class="btn btn-danger btn-xs">✕</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endfor %}
+    </div>
+    {% else %}
+    <div style="color:var(--muted);font-size:.85rem;">No results entered yet.</div>
+    {% endif %}
+</div>
+{% endblock %}

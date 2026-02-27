@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Players – {{ tournament.name }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;"><a href="/tournaments/{{ tournament.id }}" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← {{ tournament.name }}</a></div>
+<div class="page-header">
+    <div>
+        <div class="page-title">PLAYER <span>STATS</span></div>
+        <div class="page-subtitle">{{ players|length }} players · {{ tournament.name }}</div>
+    </div>
+    <div style="display:flex;gap:.5rem;">
+        <a href="/tournament/{{ tournament.id }}/matches" class="btn btn-secondary btn-sm">📋 Matches</a>
+    </div>
+</div>
+
+<div class="card card-sm" style="margin-bottom:1.25rem;">
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
+        <form method="GET" action="/tournament/{{ tournament.id }}/players" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+            <input type="text" name="q" placeholder="Search player or team…" value="{{ search }}" style="width:200px;">
+            <select name="role">
+                <option value="">All Roles</option>
+                {% for r in roles %}<option value="{{ r }}" {{ 'selected' if role_filter == r }}>{{ r|upper }}</option>{% endfor %}
+            </select>
+            <input type="hidden" name="sort" value="{{ sort_by }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+            {% if search or role_filter %}<a href="/tournament/{{ tournament.id }}/players" class="btn btn-secondary btn-sm">✕ Clear</a>{% endif %}
+        </form>
+        <span style="color:var(--muted);font-size:.82rem;margin-left:auto;">Click column headers to sort ▲▼</span>
+    </div>
+</div>
+
+<div class="tabs" id="player-tabs">
+    <a class="tab active" data-tab="overview" href="#">Overview</a>
+    <a class="tab" data-tab="duelist" href="#">DUELIST</a>
+    <a class="tab" data-tab="initiator" href="#">INITIATOR</a>
+    <a class="tab" data-tab="controller" href="#">CONTROLLER</a>
+    <a class="tab" data-tab="sentinel" href="#">SENTINEL</a>
+    <a class="tab" data-tab="flex" href="#">FLEX</a>
+</div>
+
+{% macro sl(col, label) %}
+{% set no = 'asc' if (sort_by == col and order == 'desc') else 'desc' %}
+<a href="/tournament/{{ tournament.id }}/players?sort={{ col }}&order={{ no }}{% if search %}&q={{ search }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}" style="{% if sort_by == col %}color:var(--red);{% endif %}">{{ label }}{% if sort_by == col %} {{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
+{% endmacro %}
+
+{% if players %}
+
+<div class="tab-panel active" id="tab-overview">
+<div class="card" style="padding:0;overflow:hidden;">
+<div class="table-wrap"><table>
+    <thead><tr>
+        <th>#</th><th>{{ sl('ign','Player') }}</th><th>{{ sl('team','Team') }}</th>
+        <th>{{ sl('role','Role') }}</th><th>{{ sl('region','Region') }}</th>
+        <th>{{ sl('matches_played','M') }}</th><th>{{ sl('rating','Rating') }}</th>
+        <th>{{ sl('acs','ACS') }}</th><th>{{ sl('kills','K') }}</th><th>{{ sl('deaths','D') }}</th>
+        <th>{{ sl('assists','A') }}</th><th>{{ sl('kd_ratio','K/D') }}</th>
+        <th>{{ sl('kast','KAST') }}</th><th>{{ sl('adr','ADR') }}</th>
+        <th>{{ sl('first_kills','FK') }}</th><th>{{ sl('first_deaths','FD') }}</th>
+        <th>{{ sl('base_points','Base') }}</th><th>{{ sl('role_points','Role+') }}</th>
+        <th>{{ sl('fantasy_points','PTS') }}</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for p in players %}
+    {% set manual = p.manual_pts|default(0) %}
+    <tr>
+        <td style="color:var(--muted);">{{ loop.index }}</td>
+        <td><a class="player-link" href="/tournament/{{ tournament.id }}/player/{{ p.player_id }}">{{ p.ign }}</a></td>
+        <td><span class="badge badge-team">{{ p.team_abbr or '—' }}</span></td>
+        <td><span class="badge badge-role badge-{{ p.role }}">{{ p.role|upper }}</span></td>
+        <td><span class="badge badge-region">{{ p.region or '—' }}</span></td>
+        <td class="mono">{{ p.matches_played or p.rounds_played or 0 }}</td>
+        <td>
+            {% if p.rating >= 1.15 %}<span class="rating-high mono">{{ "%.2f"|format(p.rating) }}</span>
+            {% elif p.rating >= 1.0 %}<span class="rating-med mono">{{ "%.2f"|format(p.rating) }}</span>
+            {% else %}<span class="rating-low mono">{{ "%.2f"|format(p.rating) }}</span>{% endif %}
+        </td>
+        <td class="mono">{{ "%.0f"|format(p.acs) }}</td>
+        <td class="mono" style="color:var(--green);">{{ p.kills }}</td>
+        <td class="mono" style="color:var(--red);">{{ p.deaths }}</td>
+        <td class="mono">{{ p.assists }}</td>
+        <td class="mono">{{ "%.2f"|format(p.kd_ratio) }}</td>
+        <td class="mono">{{ "%.0f"|format(p.kast) }}%</td>
+        <td class="mono">{{ "%.0f"|format(p.adr) }}</td>
+        <td class="mono">{{ p.first_kills }}</td>
+        <td class="mono">{{ p.first_deaths }}</td>
+        <td class="mono" style="color:var(--muted);">{{ "%.1f"|format(p.base_points) }}</td>
+        <td class="mono" style="color:var(--blue);">{{ "%+.1f"|format(p.role_points) }}</td>
+        <td class="mono pts-neutral" style="font-size:.95rem;">
+            {{ "%.1f"|format(p.fantasy_points + manual) }}{% if manual != 0 %}<span class="adj-badge" title="{{ '%+.1f'|format(manual) }} manual">*</span>{% endif %}
+        </td>
+        <td><a href="/tournament/{{ tournament.id }}/player/{{ p.player_id }}" class="btn btn-secondary btn-xs">→</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+</div>
+</div>
+
+{% for role in ['duelist','initiator','controller','sentinel','flex'] %}
+<div class="tab-panel" id="tab-{{ role }}">
+<div class="card" style="padding:0;overflow:hidden;">
+<div class="table-wrap"><table>
+    <thead><tr>
+        <th>#</th><th>Player</th><th>Team</th><th>Actual Role</th>
+        <th>M</th><th>Rating</th><th>ACS</th><th>K</th><th>D</th><th>A</th>
+        <th style="color:var(--yellow);">{{ role|upper }} PTS</th>
+    </tr></thead>
+    <tbody>
+    {% for p in players|sort(attribute='fantasy_points', reverse=True) %}
+    {% set rpts = role_pts_map.get(p.player_id, {}) %}
+    <tr>
+        <td style="color:var(--muted);">{{ loop.index }}</td>
+        <td><a class="player-link" href="/tournament/{{ tournament.id }}/player/{{ p.player_id }}">{{ p.ign }}</a></td>
+        <td><span class="badge badge-team">{{ p.team_abbr or '—' }}</span></td>
+        <td><span class="badge badge-role badge-{{ p.role }}">{{ p.role|upper }}</span></td>
+        <td class="mono">{{ p.matches_played or 0 }}</td>
+        <td>
+            {% if p.rating >= 1.15 %}<span class="rating-high mono">{{ "%.2f"|format(p.rating) }}</span>
+            {% elif p.rating >= 1.0 %}<span class="rating-med mono">{{ "%.2f"|format(p.rating) }}</span>
+            {% else %}<span class="rating-low mono">{{ "%.2f"|format(p.rating) }}</span>{% endif %}
+        </td>
+        <td class="mono">{{ "%.0f"|format(p.acs) }}</td>
+        <td class="mono" style="color:var(--green);">{{ p.kills }}</td>
+        <td class="mono" style="color:var(--red);">{{ p.deaths }}</td>
+        <td class="mono">{{ p.assists }}</td>
+        <td class="mono pts-neutral" style="font-size:.95rem;">{{ "%.1f"|format(rpts.get(role, 0)) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+</div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="empty"><span class="big">NO PLAYERS</span>
+{% if search or role_filter %}No results. <a href="/tournament/{{ tournament.id }}/players" style="color:var(--red);">Clear filters</a>
+{% else %}Run a scrape to load players.{% endif %}
+</div>
+{% endif %}
+
+<script>
+document.querySelectorAll('#player-tabs .tab').forEach(tab => {
+    tab.addEventListener('click', e => {
+        e.preventDefault();
+        document.querySelectorAll('#player-tabs .tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+});
+</script>
+{% endblock %}

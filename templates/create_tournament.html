@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Create Tournament – VCT Fantasy{% endblock %}
+{% block content %}
+<div style="margin-bottom:1rem;"><a href="/tournaments" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← Tournaments</a></div>
+<div class="page-header"><div class="page-title">CREATE <span>TOURNAMENT</span></div></div>
+
+<div style="max-width:680px;">
+<div class="card">
+{% if admin %}
+<form method="POST" action="/tournaments/create">
+    <div class="form-group"><label>Tournament Name *</label><input type="text" name="name" placeholder="e.g. VCT 2026 Kickoff (All Regions)" required maxlength="100"></div>
+    <div class="form-group"><label>Description</label><textarea name="description" rows="2" placeholder="Optional description…" maxlength="300"></textarea></div>
+    <div class="form-group"><label>Format</label>
+        <select name="format">
+            <option value="standard">Standard (single region)</option>
+            <option value="multi_region">Multi-Region (e.g. Kickoff)</option>
+            <option value="swiss_playoffs">Swiss → Playoffs (e.g. Masters)</option>
+        </select>
+    </div>
+
+    <div class="section-div">Event Sources (VLR.gg URLs)</div>
+    <div style="color:var(--muted);font-size:.85rem;margin-bottom:1rem;">
+        Add one URL per region. Use the stats page URL like:<br>
+        <span class="mono" style="color:var(--accent);font-size:.8rem;">https://www.vlr.gg/event/stats/2684/vct-2026-emea-kickoff</span>
+        <br>Or paste the main event page and the app will convert it automatically.
+    </div>
+    <div id="sources">
+        <div class="source-entry" style="background:var(--dark3);border:1px solid var(--border);border-radius:5px;padding:.9rem;margin-bottom:.75rem;">
+            <div class="form-row-3">
+                <div class="form-group" style="margin-bottom:0;"><label>Region</label>
+                    <select name="source_region"><option value="">Unknown</option><option value="EMEA">EMEA</option><option value="AMER">AMER</option><option value="APAC">APAC</option><option value="CN">CN</option></select>
+                </div>
+                <div class="form-group" style="margin-bottom:0;"><label>Event Name</label><input type="text" name="source_name" placeholder="e.g. EMEA Kickoff"></div>
+                <div class="form-group" style="margin-bottom:0;"><label>VLR.gg URL *</label><input type="url" name="source_url" placeholder="https://www.vlr.gg/event/..."></div>
+            </div>
+        </div>
+    </div>
+    <button type="button" onclick="addSource()" class="btn btn-secondary btn-sm" style="margin-bottom:1.5rem;">+ Add Another Source</button>
+
+    <div style="display:flex;gap:.75rem;">
+        <button type="submit" class="btn btn-primary">Create Tournament →</button>
+        <a href="/tournaments" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endif %}
+</div>
+</div>
+
+<script>
+function addSource() {
+    const container = document.getElementById('sources');
+    const entry = container.querySelector('.source-entry').cloneNode(true);
+    entry.querySelectorAll('input').forEach(i => i.value = '');
+    entry.querySelector('select').selectedIndex = 0;
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-danger btn-xs';
+    removeBtn.textContent = '✕ Remove';
+    removeBtn.style.marginTop = '.5rem';
+    removeBtn.onclick = () => entry.remove();
+    entry.appendChild(removeBtn);
+    container.appendChild(entry);
+}
+</script>
+{% endblock %}

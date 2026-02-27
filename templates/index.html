@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}VCT Fantasy Hub{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-title">VCT 2026 <span>FANTASY HUB</span></div>
+        <div class="page-subtitle">Your central command for all VCT Fantasy Leagues</div>
+    </div>
+    <a href="/tournaments/create" class="btn btn-primary">+ New Tournament</a>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card"><div class="val">{{ tournaments|length }}</div><div class="lbl">Tournaments</div></div>
+    <div class="stat-card"><div class="val">{{ leagues|length }}</div><div class="lbl">Leagues</div></div>
+    <div class="stat-card"><div class="val">{{ total_players }}</div><div class="lbl">Players Tracked</div></div>
+</div>
+
+{% if tournaments %}
+<div class="section-div">Active Tournaments</div>
+<div class="grid-3">
+{% for t in tournaments %}
+<div class="card" style="border-left:3px solid var(--red);">
+    <div class="card-title" style="border:none;margin-bottom:.5rem;">{{ t.name }}</div>
+    <div style="color:var(--muted);font-size:.83rem;margin-bottom:.75rem;">{{ t.description or 'No description' }}</div>
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.9rem;">
+        <span class="badge badge-region">{{ t.source_count }} source{{ 's' if t.source_count != 1 }}</span>
+        <span class="badge badge-team">{{ t.player_count }} players</span>
+        <span class="badge badge-team">{{ t.league_count }} leagues</span>
+        <span class="badge badge-{{ t.status }}">{{ t.status }}</span>
+    </div>
+    <a href="/tournaments/{{ t.id }}" class="btn btn-primary btn-sm">Manage →</a>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty">
+    <span class="big">NO TOURNAMENTS</span>
+    Create a tournament and add VLR.gg event URLs to get started.
+</div>
+<div style="text-align:center;"><a href="/tournaments/create" class="btn btn-primary">+ Create First Tournament</a></div>
+{% endif %}
+
+{% if leagues %}
+<div class="section-div">All Leagues</div>
+<div class="table-wrap"><table>
+    <thead><tr><th>League</th><th>Tournament</th><th>Phase</th><th>Teams</th><th></th></tr></thead>
+    <tbody>
+    {% for lg in leagues %}
+    <tr>
+        <td><a class="player-link" href="/league/{{ lg.id }}">{{ lg.name }}</a></td>
+        <td style="color:var(--muted);">{{ lg.tournament_name }}</td>
+        <td><span class="badge badge-{{ lg.phase }}">{{ lg.phase }}</span></td>
+        <td class="mono">—</td>
+        <td><a href="/league/{{ lg.id }}" class="btn btn-secondary btn-sm">Open →</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+{% endif %}
+{% endblock %}

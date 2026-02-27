@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}{{ team.team_name }} – VCT Fantasy{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;"><a href="/league/{{ team.league_id }}" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← {{ team.league_name }}</a></div>
+
+<div class="page-header">
+    <div>
+        <div class="page-title">{{ team.team_name }}</div>
+        <div class="page-subtitle">Manager: {{ team.manager_name }} · Phase: <span class="badge badge-{{ phase }}">{{ phase }}</span></div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        <button type="button" onclick="document.getElementById('rename-modal').style.display='flex'" class="btn btn-secondary btn-sm">✏ Rename</button>
+        {% if admin %}
+<form method="POST" action="/team/{{ team.id }}/delete" onsubmit="return confirm('Delete this team?')">
+            <button type="submit" class="btn btn-danger btn-sm">Delete Team</button>
+        </form>
+{% endif %}
+    </div>
+</div>
+
+<!-- Points summary -->
+<div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));">
+    <div class="stat-card"><div class="val" style="color:var(--text);font-size:1.6rem;">{{ "%.1f"|format(player_pts) }}</div><div class="lbl">Player Pts</div></div>
+    <div class="stat-card"><div class="val" style="color:var(--yellow);font-size:1.6rem;">+{{ "%.1f"|format(star_bonus) }}</div><div class="lbl">⭐ Star Bonus</div></div>
+    <div class="stat-card"><div class="val" style="color:{{ 'var(--green)' if follow_pts >= 0 else 'var(--red)' }};font-size:1.6rem;">{{ "%+.1f"|format(follow_pts) }}</div><div class="lbl">Team Follow</div></div>
+    <div class="stat-card"><div class="val" style="color:{{ 'var(--green)' if adj_pts >= 0 else 'var(--red)' }};font-size:1.6rem;">{{ "%+.1f"|format(adj_pts) }}</div><div class="lbl">Adjustments</div></div>
+    <div class="stat-card" style="border-color:var(--red);"><div class="val" style="font-size:2rem;">{{ "%.1f"|format(total_pts) }}</div><div class="lbl">Total Pts</div></div>
+</div>
+
+<div class="grid-2">
+    <!-- Roster -->
+    <div class="card">
+        <div class="card-title">🎮 Roster — {{ phase|upper }} ({{ roster|length }}/{{ max_p }})</div>
+        {% if roster %}
+        {% for p in roster %}
+        <div class="roster-row">
+            <span class="badge badge-role badge-{{ p.role_slot }}">{{ p.role_slot }}</span>
+            {% if p.is_star %}<span class="badge badge-star star-glow">⭐ STAR</span>{% endif %}
+            {% if p.is_duplicate %}<span class="badge badge-dup">DUP</span>{% endif %}
+            <div>
+                <a class="player-link" href="/tournament/{{ team.tournament_id }}/player/{{ p.player_id }}">{{ p.ign }}</a>
+                <span class="badge badge-team" style="margin-left:.3rem;">{{ p.team_abbr or '—' }}</span>
+                {% if p.region %}<span class="badge badge-region">{{ p.region }}</span>{% endif %}
+            </div>
+            <span class="roster-pts" style="margin-left:auto;">{{ "%.1f"|format(p.fantasy_points * 1.5 if p.is_star else p.fantasy_points) }} pts</span>
+            <div style="display:flex;gap:.3rem;">
+                {% if ruleset.star_player_enabled and not p.is_star %}
+                {% if admin %}
+<form method="POST" action="/team/{{ team.id }}/set_star">
+                    <input type="hidden" name="player_id" value="{{ p.player_id }}">
+                    <input type="hidden" name="phase" value="{{ phase }}">
+                    <button type="submit" class="btn btn-warning btn-xs" title="Set as Star Player">⭐</button>
+                </form>
+{% endif %}
+                {% endif %}
+                {% if admin %}
+<form method="POST" action="/team/{{ team.id }}/remove_player">
+                    <input type="hidden" name="player_id" value="{{ p.player_id }}">
+                    <input type="hidden" name="phase" value="{{ phase }}">
+                    <button type="submit" class="btn btn-danger btn-xs">✕</button>
+                </form>
+{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% if has_star %}
+        <div style="margin-top:.75rem;">
+            {% if admin %}
+<form method="POST" action="/team/{{ team.id }}/clear_star" style="display:inline;">
+                <input type="hidden" name="phase" value="{{ phase }}">
+                <button type="submit" class="btn btn-secondary btn-xs">Clear Star Player</button>
+            </form>
+{% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty" style="padding:1.5rem 0;"><span class="big" style="font-size:2rem;">EMPTY</span>No players drafted yet.</div>
+        {% endif %}
+
+        <!-- Role/Region breakdown -->
+        <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border);">
+            <div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;">Role Slots</div>
+            <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+            {% for role, req in ruleset.role_requirements.items() %}{% if req > 0 %}
+            <span class="badge badge-role badge-{{ role }}" style="opacity:{{ '1' if role_counts[role] >= req else '0.5' }};">{{ role }} {{ role_counts[role] }}/{{ req }}</span>
+            {% endif %}{% endfor %}
+            </div>
+            <div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:.6rem;margin-bottom:.4rem;">Region</div>
+            <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+            {% for reg, cnt in region_counts.items() %}<span class="badge badge-region">{{ reg }} ×{{ cnt }}</span>{% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Players -->
+    <div class="card">
+        <div class="card-title">+ Add Player to Roster{% if roster|length >= max_p %} <span style="color:var(--red);font-size:.8rem;">(FULL)</span>{% endif %}</div>
+        {% if roster|length < max_p %}
+        <div style="margin-bottom:.6rem;">
+            <input type="text" id="playerSearch" placeholder="Search players…" oninput="filterPlayers(this.value)" style="font-size:.88rem;margin-bottom:.5rem;">
+        </div>
+        <div style="max-height:380px;overflow-y:auto;" id="playerList">
+        {% if available %}
+        <table><thead><tr><th>Player</th><th>Team</th><th>Role</th><th>Pts</th><th>Slot</th><th></th></tr></thead>
+        <tbody>
+        {% for p in available %}
+        <tr class="player-row" data-name="{{ p.ign.lower() }}" data-team="{{ (p.team or '').lower() }}">
+            <td><a class="player-link" href="/tournament/{{ team.tournament_id }}/player/{{ p.player_id }}" target="_blank">{{ p.ign }}</a></td>
+            <td><span class="badge badge-team">{{ p.team_abbr or '—' }}</span></td>
+            <td><span class="badge badge-role badge-{{ p.role }}">{{ p.role }}</span></td>
+            <td class="mono pts-neutral">{{ "%.1f"|format(p.fantasy_points) }}</td>
+            <td>
+                {% if admin %}
+<form method="POST" action="/team/{{ team.id }}/add_player" style="display:flex;gap:.3rem;align-items:center;">
+                    <input type="hidden" name="player_id" value="{{ p.player_id }}">
+                    <input type="hidden" name="phase" value="{{ phase }}">
+                    <select name="role_slot" style="font-size:.75rem;padding:2px 4px;width:95px;">
+                        {% for r in roles %}<option value="{{ r }}" {{ 'selected' if p.role == r }}>{{ r }}</option>{% endfor %}
+                    </select>
+                    {% if ruleset.swiss_duplicate_allowed %}
+                    <label style="font-size:.72rem;color:var(--muted);display:flex;align-items:center;gap:2px;" title="Mark as duplicate pick">
+                        <input type="checkbox" name="is_duplicate" style="width:auto;accent-color:var(--red);"> dup
+                    </label>
+                    {% endif %}
+                    <button type="submit" class="btn btn-success btn-xs">+</button>
+                </form>
+{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody></table>
+        {% else %}
+        <div style="color:var(--muted);font-size:.88rem;">All players on this roster already.</div>
+        {% endif %}
+        </div>
+        <script>
+        function filterPlayers(val) {
+            val = val.toLowerCase();
+            document.querySelectorAll('.player-row').forEach(r => {
+                r.style.display = (r.dataset.name.includes(val) || r.dataset.team.includes(val)) ? '' : 'none';
+            });
+        }
+        </script>
+        {% else %}
+        <div style="color:var(--muted);font-size:.88rem;">Roster is full ({{ max_p }} players max). Remove a player to add another.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Followed Team & Adjustments -->
+<div class="grid-2" style="margin-top:1.25rem;">
+    <!-- Followed team -->
+    {% if ruleset.team_following_enabled %}
+    <div class="card">
+        <div class="card-title">🏟 Followed VCT Team</div>
+        {% if followed %}
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.9rem;">
+            <div><span style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--accent);">{{ followed.team_name }}</span>
+            {% if followed.team_region %}<span class="badge badge-region" style="margin-left:.4rem;">{{ followed.team_region }}</span>{% endif %}</div>
+            <div style="margin-left:auto;">
+                <span class="mono {{ 'pts-positive' if follow_pts >= 0 else 'pts-negative' }}">{{ "%+.1f"|format(follow_pts) }} pts</span>
+            </div>
+        </div>
+        {% endif %}
+        {% if admin %}
+<form method="POST" action="/team/{{ team.id }}/set_followed_team">
+            <div class="form-row" style="margin-bottom:.5rem;">
+                <div><label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Team Name</label>
+                    <input type="text" name="team_name" placeholder="e.g. Fnatic" value="{{ followed.team_name if followed else '' }}"></div>
+                <div><label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;">Region</label>
+                    <select name="team_region">
+                        <option value="">—</option>
+                        {% for reg in ['EMEA','AMER','APAC','CN'] %}
+                        <option value="{{ reg }}" {{ 'selected' if followed and followed.team_region == reg }}>{{ reg }}</option>
+                        {% endfor %}
+                    </select></div>
+            </div>
+            <div style="display:flex;gap:.5rem;">
+                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                {% if followed %}
+                <button type="submit" name="team_name" value="" class="btn btn-danger btn-sm">Remove</button>
+                {% endif %}
+            </div>
+        </form>
+{% endif %}
+        <div style="color:var(--muted);font-size:.78rem;margin-top:.6rem;">Win/loss points: BO3 W +100 / L -75 · BO5 W +75 / L -50</div>
+    </div>
+    {% endif %}
+
+    <!-- Manual adjustments -->
+    <div class="card">
+        <div class="card-title">⚖️ Point Adjustments <span style="color:var(--yellow);font-size:.85rem;" class="mono">({{ "%+.1f"|format(adj_pts) }} total)</span></div>
+        {% if adjustments %}
+        <div style="max-height:160px;overflow-y:auto;margin-bottom:.75rem;">
+        {% for a in adjustments %}
+        <div style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:.83rem;">
+            <span class="mono {{ 'pts-positive' if a.amount >= 0 else 'pts-negative' }}">{{ "%+.1f"|format(a.amount) }}</span>
+            <span style="color:var(--muted);">{{ a.reason or 'No reason given' }}</span>
+            <span style="color:var(--muted);font-size:.75rem;margin-left:auto;">{{ a.created_at[:10] }}</span>
+            {% if admin %}
+<form method="POST" action="/adjustment/{{ a.id }}/delete">
+                <button type="submit" class="btn btn-danger btn-xs">✕</button>
+            </form>
+{% endif %}
+        </div>
+        {% endfor %}
+        </div>
+        {% endif %}
+        {% if admin %}
+<form method="POST" action="/team/{{ team.id }}/add_adjustment">
+            <div class="form-row" style="margin-bottom:.4rem;">
+                <div><label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:3px;">Points</label><input type="number" name="amount" placeholder="+50 or -25" step="0.5" required></div>
+                <div><label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:3px;">Reason</label><input type="text" name="reason" placeholder="e.g. Bonus for winning"></div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Add Adjustment</button>
+        </form>
+{% endif %}
+    </div>
+</div>
+
+<!-- Rename modal -->
+<div id="rename-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;align-items:center;justify-content:center;">
+    <div class="card" style="max-width:420px;width:90%;position:relative;">
+        <div class="card-title">Rename Team</div>
+        {% if admin %}
+<form method="POST" action="/team/{{ team.id }}/rename">
+            <div class="form-group"><label>Team Name</label><input type="text" name="team_name" value="{{ team.team_name }}" required></div>
+            <div class="form-group"><label>Manager Name</label><input type="text" name="manager_name" value="{{ team.manager_name }}" required></div>
+            <div style="display:flex;gap:.5rem;">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" onclick="document.getElementById('rename-modal').style.display='none'" class="btn btn-secondary">Cancel</button>
+            </div>
+        </form>
+{% endif %}
+    </div>
+</div>
+{% endblock %}

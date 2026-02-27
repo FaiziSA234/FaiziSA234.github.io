@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Draft – {{ league.name }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;"><a href="/league/{{ league.id }}" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← {{ league.name }}</a></div>
+<div class="page-header">
+    <div><div class="page-title">🎯 SNAKE <span>DRAFT</span></div><div class="page-subtitle">{{ league.name }}</div></div>
+    <div style="display:flex;gap:.5rem;">
+        {% if not session %}
+        {% if admin %}
+<form method="POST" action="/league/{{ league.id }}/draft/start">
+            <select name="phase" style="margin-right:.4rem;font-size:.85rem;padding:5px 8px;background:var(--dark3);border:1px solid var(--border);color:var(--text);border-radius:3px;">
+                <option value="swiss">Swiss Phase</option>
+                <option value="playoffs">Playoffs Phase</option>
+            </select>
+            <button type="submit" class="btn btn-primary" onclick="return confirm('Start draft?')">▶ Start Draft</button>
+        </form>
+{% endif %}
+        {% else %}
+        {% if admin %}
+<form method="POST" action="/league/{{ league.id }}/draft/reset">
+            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reset draft?')">✕ Reset</button>
+        </form>
+{% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% if session %}
+<!-- Draft status -->
+<div class="phase-banner phase-{{ session.phase }}">
+    <span>DRAFT ACTIVE · {{ session.phase|upper }} PHASE · Pick {{ session.current_pick }}/{{ session.total_picks }}</span>
+    {% if session.status == 'complete' %}<span class="badge badge-star" style="margin-left:.5rem;">COMPLETE</span>{% endif %}
+</div>
+
+{% if current_team and session.status == 'active' %}
+<div class="card" style="margin-bottom:1.25rem;border:2px solid var(--red);">
+    <div class="card-title">🎯 ON THE CLOCK: {{ current_team.team_name }} ({{ current_team.manager_name }})</div>
+    <div style="color:var(--muted);font-size:.88rem;">Pick #{{ session.current_pick }} — select a player from the list below</div>
+</div>
+{% endif %}
+
+<div class="grid-2">
+    <!-- Available players -->
+    <div class="card">
+        <div class="card-title">Available Players ({{ available|length }})</div>
+        <input type="text" id="draftSearch" placeholder="Search players…" oninput="filterDraft(this.value)" style="margin-bottom:.6rem;font-size:.88rem;">
+        <div style="max-height:500px;overflow-y:auto;" id="draftList">
+        <table><thead><tr><th>Player</th><th>Team</th><th>Role</th><th>Pts</th><th>Slot</th><th></th></tr></thead>
+        <tbody>
+        {% for p in available %}
+        <tr class="draft-row" data-name="{{ p.ign.lower() }}" data-team="{{ (p.team or '').lower() }}">
+            <td><span style="font-weight:700;color:var(--accent);">{{ p.ign }}</span></td>
+            <td><span class="badge badge-team">{{ p.team_abbr or '—' }}</span></td>
+            <td><span class="badge badge-role badge-{{ p.role }}">{{ p.role }}</span></td>
+            <td class="mono pts-neutral">{{ "%.1f"|format(p.fantasy_points) }}</td>
+            <td>
+                {% if current_team and session.status == 'active' %}
+                {% if admin %}
+<form method="POST" action="/league/{{ league.id }}/draft/pick" style="display:flex;gap:.3rem;align-items:center;">
+                    <input type="hidden" name="player_id" value="{{ p.player_id }}">
+                    <select name="role_slot" style="font-size:.72rem;padding:2px 4px;width:90px;">
+                        {% for r in roles %}<option value="{{ r }}" {{ 'selected' if p.role == r }}>{{ r }}</option>{% endfor %}
+                    </select>
+                    {% if ruleset.swiss_duplicate_allowed %}
+                    <label style="font-size:.7rem;display:flex;align-items:center;gap:2px;" title="Mark as duplicate"><input type="checkbox" name="is_duplicate" style="width:auto;accent-color:var(--red);"> dup</label>
+                    {% endif %}
+                    <button type="submit" class="btn btn-success btn-xs">Pick</button>
+                </form>
+{% endif %}
+                {% else %}
+                <span style="color:var(--muted);font-size:.78rem;">—</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody></table>
+        </div>
+        <script>
+        function filterDraft(v) {
+            v = v.toLowerCase();
+            document.querySelectorAll('.draft-row').forEach(r => {
+                r.style.display = (r.dataset.name.includes(v) || r.dataset.team.includes(v)) ? '' : 'none';
+            });
+        }
+        </script>
+    </div>
+
+    <!-- Pick schedule + team rosters -->
+    <div>
+        {% if pick_schedule %}
+        <div class="card" style="margin-bottom:1rem;">
+            <div class="card-title">Upcoming Picks</div>
+            {% for pick in pick_schedule %}
+            <div style="display:flex;align-items:center;gap:.5rem;padding:.35rem 0;border-bottom:1px solid var(--border);font-size:.85rem;{{ 'color:var(--yellow);font-weight:700;' if loop.index == 1 else '' }}">
+                <span class="mono" style="color:var(--muted);min-width:28px;">#{{ pick.pick_num }}</span>
+                <span>{{ pick.team.team_name if pick.team else '—' }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="card">
+            <div class="card-title">Team Rosters ({{ session.phase|upper }})</div>
+            {% for t in teams %}
+            <div style="margin-bottom:.75rem;">
+                <div style="font-weight:700;color:var(--accent);font-size:.9rem;margin-bottom:.3rem;">{{ t.team_name }}</div>
+                {% set team_roster = [] %}
+                {% for p in (swiss_roster if session.phase == 'swiss' else []) %}{% if false %}{% endif %}{% endfor %}
+                <div style="display:flex;gap:.3rem;flex-wrap:wrap;">
+                    {% set found = namespace(picks=[]) %}
+                    {% for p in available %}{% endfor %}
+                    <span style="color:var(--muted);font-size:.78rem;">Use team page to view full roster</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="empty">
+    <span class="big">NO DRAFT</span>
+    Start a snake draft above to begin picking players.
+</div>
+<div style="text-align:center;color:var(--muted);font-size:.88rem;max-width:600px;margin:0 auto;">
+    <p style="margin-bottom:.5rem;">The snake draft follows the order: A → B → C → … → C → B → A → A → B → …</p>
+    <p>Teams are ordered by their creation order. The first pick order will follow the team list sequence.</p>
+</div>
+{% endif %}
+
+{% endblock %}

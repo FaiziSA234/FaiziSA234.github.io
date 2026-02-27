@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}{{ match.team_a }} vs {{ match.team_b }} – VCT Fantasy{% endblock %}
+{% block content %}
+<div style="margin-bottom:.9rem;">
+    <a href="/tournament/{{ tournament.id }}/matches" style="color:var(--muted);text-decoration:none;font-size:.85rem;">← Match List</a>
+</div>
+
+{# ── Match header ──────────────────────────────────────────────────────────── #}
+{% set a_won = match.score_a > match.score_b %}
+{% set fmt = match.match_format or ('bo5' if ((match.score_a|default(0)) + (match.score_b|default(0))) > 3 else 'bo3') %}
+
+<div style="background:var(--dark2);border:1px solid var(--border);border-top:3px solid var(--red);border-radius:6px;padding:1.5rem 2rem;margin-bottom:1.5rem;">
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:2rem;">
+        <div style="text-align:right;">
+            <div style="font-family:'Open Sans',sans-serif;font-size:2rem;font-weight:800;color:{{ 'var(--green)' if a_won else 'var(--muted)' }};">{{ match.team_a }}</div>
+            {% if a_won %}<div style="font-size:.68rem;color:var(--green);letter-spacing:.15em;font-weight:700;margin-top:2px;">WINNER</div>{% endif %}
+        </div>
+        <div style="text-align:center;">
+            <div style="font-family:'Open Sans',sans-serif;font-weight:800;font-size:2.8rem;line-height:1;letter-spacing:.05em;">
+                <span style="color:{{ 'var(--green)' if a_won else 'var(--muted)' }};">{{ match.score_a }}</span>
+                <span style="color:var(--border);font-size:2rem;"> – </span>
+                <span style="color:{{ 'var(--green)' if not a_won else 'var(--muted)' }};">{{ match.score_b }}</span>
+            </div>
+            <div style="font-size:.68rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-top:4px;">{{ fmt|upper }}</div>
+            <a href="{{ match.match_url }}" target="_blank" style="font-size:.72rem;color:var(--red);text-decoration:none;margin-top:4px;display:block;">VLR ↗</a>
+        </div>
+        <div style="text-align:left;">
+            <div style="font-family:'Open Sans',sans-serif;font-size:2rem;font-weight:800;color:{{ 'var(--green)' if not a_won else 'var(--muted)' }};">{{ match.team_b }}</div>
+            {% if not a_won %}<div style="font-size:.68rem;color:var(--green);letter-spacing:.15em;font-weight:700;margin-top:2px;">WINNER</div>{% endif %}
+        </div>
+    </div>
+</div>
+
+{# ── Incomplete stats warning ──────────────────────────────────────────────── #}
+{% if incomplete_players %}
+<div style="background:rgba(240,165,0,.08);border:1px solid rgba(240,165,0,.35);border-left:3px solid var(--yellow);border-radius:4px;padding:.9rem 1.2rem;margin-bottom:1.25rem;">
+    <div style="color:var(--yellow);font-weight:700;font-size:.9rem;letter-spacing:.05em;margin-bottom:.5rem;">
+        ⚠ STATS INCOMPLETE — {{ incomplete_players|length }} player(s) excluded from points
+    </div>
+    <div style="color:var(--muted);font-size:.82rem;margin-bottom:.75rem;">
+        The following players have missing stats (shown with <span style="color:var(--yellow);">⚠</span> below). 
+        Their data was not included in fantasy points to avoid calculation errors.
+        {% if admin %}Use the edit forms below each flagged row to fill in the missing values.{% endif %}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
+    {% for p in incomplete_players %}
+    <span style="background:rgba(240,165,0,.15);color:var(--yellow);padding:2px 8px;border-radius:3px;font-size:.78rem;font-weight:700;">
+        {{ p.ign }} — missing: {{ p.missing_fields }}
+    </span>
+    {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{# ── Player to Watch ───────────────────────────────────────────────────────── #}
+{% if player_to_watch %}
+<div class="watch-card" style="margin-bottom:1.5rem;">
+    <div class="watch-label" style="margin-bottom:.4rem;">👁 Player to Watch</div>
+    <div class="watch-name">{{ player_to_watch.ign }}</div>
+    <div style="color:var(--muted);font-size:.85rem;margin-top:.3rem;display:flex;justify-content:center;gap:.75rem;flex-wrap:wrap;">
+        <span class="badge badge-role badge-{{ player_to_watch.role }}">{{ player_to_watch.role|upper }}</span>
+        <span>{{ player_to_watch.team }}</span>
+        <span class="pts-neutral">{{ "%.1f"|format(player_to_watch.match_pts) }} pts</span>
+        <span>{{ player_to_watch.kills }}/{{ player_to_watch.deaths }}/{{ player_to_watch.assists }}</span>
+        <span>ACS {{ "%.0f"|format(player_to_watch.acs) }}</span>
+        <span>Rating
+            {% if player_to_watch.rating >= 1.15 %}<span class="rating-high">{{ "%.2f"|format(player_to_watch.rating) }}</span>
+            {% elif player_to_watch.rating >= 1.0 %}<span class="rating-med">{{ "%.2f"|format(player_to_watch.rating) }}</span>
+            {% else %}<span class="rating-low">{{ "%.2f"|format(player_to_watch.rating) }}</span>{% endif %}
+        </span>
+    </div>
+</div>
+{% endif %}
+
+{# ── Player stats tables — both teams side by side ────────────────────────── #}
+{% macro player_table(players, team_name, is_winner) %}
+<div class="card">
+    <div class="card-title" style="color:{{ 'var(--green)' if is_winner else 'var(--muted)' }};">
+        {{ team_name }}{% if is_winner %} <span style="font-size:.72rem;letter-spacing:.12em;">✓ WINNER</span>{% endif %}
+    </div>
+    {% if players %}
+    <div class="table-wrap"><table>
+        <thead><tr>
+            <th>Player</th><th>Role</th>
+            <th>Rating</th><th>ACS</th><th>K</th><th>D</th><th>A</th>
+            <th>K/D</th><th>KAST</th><th>ADR</th><th>FK</th><th>FD</th><th>Pts</th>
+        </tr></thead>
+        <tbody>
+        {% for p in players %}
+        {% set incomplete = p.get('stats_incomplete', 0) %}
+        <tr style="{{ 'opacity:.6;' if incomplete else '' }}">
+            <td>
+                {% if incomplete %}<span style="color:var(--yellow);margin-right:.3rem;" title="Stats incomplete: {{ p.missing_fields }}">⚠</span>{% endif %}
+                <a class="player-link" href="/tournament/{{ tournament.id }}/player/{{ p.player_id }}" style="{{ 'color:var(--muted);' if incomplete else '' }}">{{ p.ign }}</a>
+                {% if p.agent %}<span style="color:var(--muted);font-size:.73rem;margin-left:.3rem;">{{ p.agent }}</span>{% endif %}
+            </td>
+            <td><span class="badge badge-role badge-{{ p.role }}">{{ p.role|upper }}</span></td>
+            <td>
+                {% if p.rating >= 1.15 %}<span class="rating-high mono">{{ "%.2f"|format(p.rating) }}</span>
+                {% elif p.rating >= 1.0 %}<span class="rating-med mono">{{ "%.2f"|format(p.rating) }}</span>
+                {% else %}<span class="rating-low mono">{{ "%.2f"|format(p.rating) }}</span>{% endif %}
+            </td>
+            <td class="mono">{{ "%.0f"|format(p.acs) }}</td>
+            <td class="mono" style="color:var(--green);">{{ p.kills }}</td>
+            <td class="mono" style="color:var(--red);">{{ p.deaths }}</td>
+            <td class="mono">{{ p.assists }}</td>
+            <td class="mono">{{ "%.2f"|format(p.kills / [p.deaths,1]|max) }}</td>
+            <td class="mono" style="{{ 'color:var(--yellow);' if incomplete and 'kast' in (p.missing_fields or '') else '' }}">
+                {{ "%.0f"|format(p.kast) + "%" if not incomplete or 'kast' not in (p.missing_fields or '') else "—" }}
+            </td>
+            <td class="mono">{{ "%.0f"|format(p.adr) }}</td>
+            <td class="mono">{{ p.first_kills }}</td>
+            <td class="mono">{{ p.first_deaths }}</td>
+            <td class="mono {% if not incomplete %}pts-neutral{% endif %}" style="{{ 'color:var(--yellow);font-style:italic;' if incomplete else '' }}">
+                {% if incomplete %}excl.{% else %}{{ "%.1f"|format(p.match_pts) }}{% endif %}
+            </td>
+        </tr>
+        {% if incomplete and admin %}
+        <tr style="background:rgba(240,165,0,.04);">
+            <td colspan="13" style="padding:.6rem 1rem;">
+                <form method="POST" action="/tournament/{{ tournament.id }}/matches/{{ match.match_id }}/patch_stats" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+                    <input type="hidden" name="player_id" value="{{ p.player_id }}">
+                    <span style="color:var(--yellow);font-size:.78rem;font-weight:700;">Fill missing stats for {{ p.ign }}:</span>
+                    {% for field, label, step in [
+                        ('rating','Rating','0.01'), ('acs','ACS','1'), ('kills','K','1'),
+                        ('deaths','D','1'), ('assists','A','1'), ('kast','KAST%','0.1'),
+                        ('adr','ADR','0.1'), ('first_kills','FK','1'), ('first_deaths','FD','1')
+                    ] %}
+                    <div style="display:flex;flex-direction:column;gap:2px;">
+                        <label style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;{{ 'color:var(--yellow);' if field in (p.missing_fields or '') else '' }}">
+                            {{ label }}{{ '*' if field in (p.missing_fields or '') else '' }}
+                        </label>
+                        <input type="number" name="{{ field }}" step="{{ step }}" placeholder="{{ "%.1f"|format(p[field]) if p[field] else '' }}"
+                               style="width:68px;padding:3px 6px;font-size:.8rem;background:var(--dark3);border:1px solid {{ 'var(--yellow)' if field in (p.missing_fields or '') else 'var(--border)' }};color:var(--text);border-radius:3px;">
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-warning btn-sm" style="align-self:flex-end;">Save</button>
+                </form>
+            </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div style="color:var(--muted);font-size:.85rem;padding:.5rem 0;">No stats available.</div>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{% if team_a_players or team_b_players %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+    {{ player_table(team_a_players, match.team_a, a_won) }}
+    {{ player_table(team_b_players, match.team_b, not a_won) }}
+</div>
+<style>@media(max-width:1100px){div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr;}}</style>
+{% else %}
+<div class="empty"><span class="big">NO STATS</span>Per-match stats not yet scraped for this game.</div>
+{% endif %}
+{% endblock %}
