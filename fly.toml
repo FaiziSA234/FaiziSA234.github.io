@@ -1,0 +1,14 @@
+app = "vct-fantasy"        # change this to any unique name
+primary_region = "lhr"     # lhr = London, closest to you
+
+[build]
+
+[http_service]
+  internal_port = 5000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+
+[mounts]
+  source = "vct_data"
+  destination = "/data"
